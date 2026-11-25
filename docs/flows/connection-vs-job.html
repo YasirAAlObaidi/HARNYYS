@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yyai: grouping handlers by connection vs by job</title>
+<style>
+  :root{
+    --bg:#fafaf8;--ink:#1f1e1c;--muted:#6b6a64;--line:#d8d6ce;--card:#ffffff;--codebg:#f3f1ea;
+    --svc:#534AB7;--svc-bg:#EEEDFE;
+    --slot:#854F0B;--slot-bg:#FAEEDA;
+    --brand:#0F6E56;--brand-bg:#E1F5EE;
+    --help:#5F5E5A;--help-bg:#F1EFE8;
+    --bad:#A32D2D;--bad-bg:#FCEBEB;
+    --good:#3B6D11;--good-bg:#EAF3DE;
+    --pkt:#EF9F27;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1b1b1a;--ink:#ecebe6;--muted:#9c9a92;--line:#3a3936;--card:#232322;--codebg:#2a2a28;
+      --svc:#AFA9EC;--svc-bg:#26215C;
+      --slot:#FAC775;--slot-bg:#412402;
+      --brand:#5DCAA5;--brand-bg:#04342C;
+      --help:#B4B2A9;--help-bg:#2C2C2A;
+      --bad:#F09595;--bad-bg:#501313;
+      --good:#97C459;--good-bg:#173404;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 20px 40px}
+  h1{font-size:20px;font-weight:500;margin:0 0 12px}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+  @media (max-width:860px){.grid{grid-template-columns:1fr}}
+  svg{width:100%;height:auto;display:block}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .card .hd{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:8px}
+  .badge{font-size:11.5px;padding:2px 8px;border-radius:99px}
+  .badge.bad{background:var(--bad-bg);color:var(--bad)}
+  .badge.good{background:var(--good-bg);color:var(--good)}
+  pre{margin:0;background:var(--codebg);border-radius:8px;padding:10px 12px;font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow-x:auto}
+  pre span{display:block;border-radius:3px;padding:0 4px;margin:0 -4px;transition:background .3s,color .3s}
+  pre .dim{color:var(--muted)}
+  pre .hi{background:color-mix(in srgb,var(--pkt) 22%,transparent)}
+  pre .bad{background:var(--bad-bg);color:var(--bad)}
+  pre .good{background:var(--good-bg);color:var(--good)}
+  .note{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .el{transition:transform .8s cubic-bezier(.4,0,.2,1),opacity .4s}
+  .el.hide{opacity:0;pointer-events:none}
+  svg.noanim .el{transition:none}
+  .el .inner{transition:opacity .3s}
+  .el.dim .inner{opacity:.3}
+  .box{stroke-width:1}
+  .t{font-size:14px;font-weight:500;fill:var(--ink)}
+  .s{font-size:11.5px;fill:var(--muted)}
+  .svc .box{fill:var(--svc-bg);stroke:var(--svc)}
+  .slot .box{fill:var(--slot-bg);stroke:var(--slot);stroke-dasharray:6 4;stroke-width:1.5}
+  .brand .box{fill:var(--brand-bg);stroke:var(--brand)}
+  .help .box{fill:var(--help-bg);stroke:var(--help)}
+  .el.bad .box{fill:var(--bad-bg);stroke:var(--bad);stroke-width:2;stroke-dasharray:none}
+  .halo{fill:none;stroke-width:7;opacity:0;transition:opacity .25s}
+  .el.on .halo{opacity:.25}
+  .el.on .box{stroke-width:2.2}
+  .grp rect{fill:none;stroke:var(--muted);stroke-dasharray:5 5;stroke-width:1}
+  .grp text,.lbl{fill:var(--muted);font-size:12px}
+  .ln{fill:none;stroke-width:1.5;transition:opacity .4s,stroke .3s;opacity:0}
+  .ln.direct{opacity:1;stroke:var(--muted)}
+  .ln.badl{opacity:1;stroke:var(--bad);stroke-width:2}
+  .ln.can{opacity:.7;stroke:var(--brand);stroke-dasharray:3 5}
+  .ln.call{opacity:1;stroke:var(--svc)}
+  .ln.plug{opacity:1;stroke:var(--pkt);stroke-width:3.5}
+  .ln.helper{opacity:1;stroke:var(--help);stroke-dasharray:2 4}
+  .ln.late{transition-delay:.6s}
+  #pkt{fill:var(--pkt);transition:opacity .25s}
+  #pkt.gone{opacity:0}
+  .cap{margin-top:12px;padding:14px 18px;border:1px solid var(--line);border-radius:12px;min-height:100px}
+  .meta{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted)}
+  .chip{padding:2px 9px;border-radius:99px;font-size:12px}
+  .chip.a{background:var(--bad-bg);color:var(--bad)}
+  .chip.b{background:var(--good-bg);color:var(--good)}
+  .caption{font-size:18px;margin-top:6px}
+  .controls{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .controls button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
+  .controls button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);min-width:84px}
+  .controls select{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px}
+  .bar{display:flex;gap:3px;flex:1;min-width:200px;margin-left:6px}
+  .bar i{flex:1;height:8px;border-radius:3px;background:var(--line);cursor:pointer}
+  .bar i.done{background:var(--muted)}
+  .bar i.cur{background:var(--pkt)}
+  .bar i.split{margin-left:8px}
+  .hint{font-size:12px;color:var(--muted);margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Grouping handlers: by connection type vs by job</h1>
+  <div class="grid">
+    <div>
+      <svg id="stage" class="noanim" viewBox="0 0 680 610" role="img" aria-label="Services, jobs and brand handlers, animated"></svg>
+      <div class="cap" aria-live="polite">
+        <div class="meta"><span id="count"></span><span id="chip" class="chip"></span></div>
+        <div id="caption" class="caption"></div>
+      </div>
+    </div>
+    <div class="side">
+      <div class="card">
+        <div class="hd"><span id="codeTitle"></span><span id="codeBadge" class="badge"></span></div>
+        <pre id="code"></pre>
+        <div id="codeNote" class="note"></div>
+      </div>
+      <div class="card">
+        <div class="hd"><span id="cfgTitle"></span></div>
+        <pre id="cfg"></pre>
+      </div>
+    </div>
+  </div>
+  <div class="controls">
+    <button id="prev" aria-label="Previous step">&#8592;</button>
+    <button id="play" class="primary">Pause</button>
+    <button id="next" aria-label="Next step">&#8594;</button>
+    <select id="speed" aria-label="Speed">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x</option>
+      <option value="2">2x</option>
+    </select>
+    <div class="bar" id="bar"></div>
+  </div>
+  <div class="hint">Space plays or pauses. The arrow keys step through. Click the bar to jump. Steps 1 to 5 show design A, and steps 6 to 13 show design B.</div>
+</div>
+
+<script>
+const SIZE = {svc: [170, 56], slot: [180, 64], brand: [150, 60], help: [170, 52]};
+const E = {
+  pricing: {k: 'svc',   t: 'Pricing service', s: 'business logic'},
+  reorder: {k: 'svc',   t: 'Reorder service', s: 'business logic'},
+  crmsvc:  {k: 'svc',   t: 'CRM service',     s: 'business logic'},
+  inv:     {k: 'slot',  t: 'Inventory job',   s: 'get_price, stock_level'},
+  acc:     {k: 'slot',  t: 'Accounting job',  s: 'invoices, balances'},
+  crmj:    {k: 'slot',  t: 'CRM job',         s: 'send_reply, contacts'},
+  alameen: {k: 'brand', t: 'Al Ameen',        s: 'speaks SQL Server'},
+  odoo:    {k: 'brand', t: 'Odoo',            s: 'speaks web API'},
+  zoho:    {k: 'brand', t: 'Zoho',            s: 'speaks web API'},
+  hsql:    {k: 'help',  t: 'SQL Server helper', s: 'common/mssql.py'},
+  hhttp:   {k: 'help',  t: 'HTTP helper',     s: 'common/http.py'}
+};
+const BASE = {pricing: [120, 80], reorder: [340, 80], crmsvc: [560, 80], inv: [120, 240], acc: [340, 240], crmj: [560, 240], hsql: [120, 560], hhttp: [450, 560]};
+const POS = {
+  1: {...BASE, alameen: [170, 310], odoo: [430, 310], zoho: [590, 310]},
+  2: {...BASE, alameen: [120, 420], odoo: [340, 420], zoho: [560, 420]}
+};
+const LINES = {
+  d_pa: ['pricing', 'alameen'], d_po: ['pricing', 'odoo'], d_ra: ['reorder', 'alameen'], d_ro: ['reorder', 'odoo'],
+  s_pi: ['pricing', 'inv'], s_cc: ['crmsvc', 'crmj'],
+  c_ai: ['alameen', 'inv'], c_aa: ['alameen', 'acc'], c_oi: ['odoo', 'inv'], c_zc: ['zoho', 'crmj'],
+  h_as: ['alameen', 'hsql'], h_oh: ['odoo', 'hhttp'], h_zh: ['zoho', 'hhttp']
+};
+
+const CODE = {
+  empty: {t: 'Pricing service code', l: [['def get_price(code):', ''], ['    ...', 'dim']]},
+  a1: {t: 'Pricing service code', n: "Pricing now knows Al Ameen's table names.", l: [
+    ['def get_price(code):', ''],
+    ['    rows = al_ameen.query(', 'hi'],
+    ['        "SELECT price FROM <Al Ameen table>")', 'hi'],
+    ['    return rows[0].price', '']]},
+  a2: {t: 'Pricing service code', b: ['edited', 'bad'], n: 'Every new vendor adds another branch here.', l: [
+    ['def get_price(code, customer):', 'bad'],
+    ['    if customer.stock == "al_ameen":', 'bad'],
+    ['        rows = al_ameen.query("SELECT ...")', ''],
+    ['    elif customer.stock == "odoo":', 'bad'],
+    ['        data = odoo.call("product", ...)', 'bad'],
+    ['    ...', 'dim']]},
+  a3: {t: 'Reorder service code', b: ['edited', 'bad'], n: 'The same branches, copied into a second service.', l: [
+    ['def check_reorder(code, customer):', 'bad'],
+    ['    if customer.stock == "al_ameen":', 'bad'],
+    ['        rows = al_ameen.query("SELECT ...")', ''],
+    ['    elif customer.stock == "odoo":', 'bad'],
+    ['        data = odoo.call("product", ...)', 'bad'],
+    ['    ...', 'dim']]},
+  b0: {t: 'Inventory job (InventoryPort in code)', n: 'The questions any inventory product must be able to answer.', l: [
+    ['class InventoryPort(Protocol):', 'hi'],
+    ['    def get_price(code) -> ItemPrice', ''],
+    ['    def stock_level(code) -> int', '']]},
+  b1: {t: 'handlers/al_ameen/', n: 'One brand folder can fill several jobs.', l: [
+    ['class AlAmeenInventory(InventoryPort):', 'hi'],
+    ['    ...  SQL lives here', 'dim'],
+    ['class AlAmeenAccounting(AccountingPort):', 'hi'],
+    ['    ...  SQL lives here', 'dim']]},
+  b2: {t: 'Pricing service code', n: 'No vendor names anywhere.', l: [
+    ['def get_price(code):', ''],
+    ['    return inventory.get_price(code)', 'good']]},
+  b3: {t: 'Pricing service code', b: ['unchanged', 'good'], n: 'Same code for every customer.', l: [
+    ['def get_price(code):', ''],
+    ['    return inventory.get_price(code)', 'good']]},
+  tree: {t: 'Folders', n: 'Job, brand and connection each have one home.', l: [
+    ['handlers/', ''],
+    ['  ports.py      jobs: InventoryPort, CrmPort', 'hi'],
+    ['  al_ameen/     inventory.py, accounting.py', ''],
+    ['  odoo/         inventory.py', ''],
+    ['  zoho/         crm.py', ''],
+    ['  common/       mssql.py, http.py', 'dim']]}
+};
+const CFG = {
+  none: {t: 'Customer config', l: [['(nothing: the vendor is chosen in code)', 'dim']]},
+  unset: {t: 'Customer config', l: [['inventory:  ?', 'dim'], ['accounting: ?', 'dim'], ['crm:        ?', 'dim']]},
+  acme: {t: 'customers/acme/config.yaml', l: [['inventory: al_ameen', 'hi']]},
+  beta: {t: 'customers/beta/config.yaml', l: [['inventory: odoo', 'hi']]},
+  gamma: {t: 'customers/gamma/config.yaml', l: [['inventory:  al_ameen', 'hi'], ['accounting: al_ameen', 'hi'], ['crm:        zoho', 'hi']]}
+};
+
+const P2VIS = ['pricing', 'inv', 'acc', 'crmj', 'alameen', 'odoo', 'zoho', 'lbl_svc', 'lbl_jobs', 'lbl_brands'];
+const CAN = {c_ai: 'can', c_aa: 'can', c_oi: 'can', c_zc: 'can'};
+const MIXED = {s_pi: 'call', s_cc: 'call', c_ai: 'plug', c_aa: 'plug', c_zc: 'plug'};
+const STEPS = [
+  {part: 1, vis: ['pricing', 'alameen', 'zoho', 'gdb', 'gapi', 'lbl_svc'], code: 'empty', cfg: 'none',
+   c: 'Design A groups handlers by how they connect. Al Ameen sits under database handlers, and Zoho under API handlers.'},
+  {part: 1, vis: ['pricing', 'alameen', 'zoho', 'gdb', 'gapi', 'lbl_svc'], focus: ['pricing', 'alameen'], lines: {d_pa: 'direct'}, paths: [['pricing', 'alameen']], code: 'a1', cfg: 'none',
+   c: 'Acme keeps its stock in Al Ameen. Pricing calls the Al Ameen handler and writes the SQL itself.'},
+  {part: 1, vis: ['pricing', 'alameen', 'zoho', 'odoo', 'gdb', 'gapi', 'lbl_svc'], focus: ['odoo'], lines: {d_pa: 'direct'}, code: 'a1', cfg: 'none',
+   c: 'A new customer, Beta, keeps its stock in Odoo. Odoo has a web API, so it joins the API handlers.'},
+  {part: 1, vis: ['pricing', 'alameen', 'zoho', 'odoo', 'gdb', 'gapi', 'lbl_svc'], focus: ['pricing', 'alameen', 'odoo'], bad: ['pricing'], lines: {d_pa: 'direct', d_po: 'badl'}, paths: [['pricing', 'odoo']], code: 'a2', cfg: 'none',
+   c: "To serve Beta, pricing's code has to change. It gains an if/else for each vendor."},
+  {part: 1, vis: ['pricing', 'reorder', 'alameen', 'zoho', 'odoo', 'gdb', 'gapi', 'lbl_svc'], focus: ['pricing', 'reorder', 'alameen', 'odoo'], bad: ['pricing', 'reorder'], lines: {d_pa: 'direct', d_po: 'badl', d_ra: 'badl', d_ro: 'badl'}, paths: [['reorder', 'alameen'], ['reorder', 'odoo']], code: 'a3', cfg: 'none',
+   c: 'Every service that touches stock needs the same if/else. Each new vendor means edits all over the business logic.'},
+  {part: 2, vis: P2VIS, focus: ['inv', 'acc', 'crmj'], code: 'b0', cfg: 'unset',
+   c: 'Design B starts by naming the jobs the business needs. Each job is a slot with a fixed set of questions.'},
+  {part: 2, vis: P2VIS, focus: ['alameen', 'odoo', 'zoho', 'inv', 'acc', 'crmj'], lines: {...CAN}, code: 'b1', cfg: 'unset',
+   c: 'Each brand declares which jobs it can do. Al Ameen can do inventory and accounting, Odoo can do inventory, and Zoho can do CRM.'},
+  {part: 2, vis: P2VIS, focus: ['pricing', 'inv'], lines: {...CAN, s_pi: 'call'}, paths: [['pricing', 'inv']], code: 'b2', cfg: 'unset',
+   c: 'Pricing only ever talks to the inventory slot. It never names a vendor.'},
+  {part: 2, vis: P2VIS, focus: ['pricing', 'inv', 'alameen'], lines: {s_pi: 'call', c_ai: 'plug'}, paths: [['pricing', 'inv', 'alameen']], code: 'b2', cfg: 'acme',
+   c: "Acme's config plugs Al Ameen into the inventory slot. The SQL stays inside Al Ameen's folder."},
+  {part: 2, vis: P2VIS, focus: ['pricing', 'inv', 'odoo'], lines: {s_pi: 'call', c_oi: 'plug'}, paths: [['pricing', 'inv', 'odoo']], code: 'b3', cfg: 'beta',
+   c: "Beta's config plugs in Odoo instead. Pricing's code stays the same."},
+  {part: 2, vis: [...P2VIS, 'crmsvc'], focus: ['pricing', 'crmsvc', 'inv', 'acc', 'crmj', 'alameen', 'zoho'], lines: {...MIXED}, paths: [['pricing', 'inv', 'alameen'], ['crmsvc', 'crmj', 'zoho']], code: 'b3', cfg: 'gamma',
+   c: 'In your mixed case, Al Ameen fills two slots and Zoho fills the CRM slot. The price comes from Al Ameen, and the reply goes out through Zoho.'},
+  {part: 2, vis: [...P2VIS, 'crmsvc', 'hsql', 'hhttp', 'lbl_help'], focus: ['alameen', 'odoo', 'zoho', 'hsql', 'hhttp'], lines: {...MIXED, h_as: 'helper', h_oh: 'helper', h_zh: 'helper'}, paths: [['alameen', 'hsql']], code: 'tree', cfg: 'gamma',
+   c: 'Connection type still exists, one level lower. Al Ameen uses the shared SQL Server helper, and Odoo and Zoho share the HTTP helper.'},
+  {part: 2, vis: [...P2VIS, 'crmsvc', 'hsql', 'hhttp', 'lbl_help'], lines: {...MIXED, h_as: 'helper', h_oh: 'helper', h_zh: 'helper'}, code: 'tree', cfg: 'gamma',
+   c: 'The job is the slot the business logic talks to. The brand is the product that fills it. The connection is the helper the brand uses. Switching vendor means changing one config line.'}
+];
+
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('stage');
+const mk = (tag, attrs, parent) => {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  (parent || svg).appendChild(e);
+  return e;
+};
+
+const statics = {};
+const grp = (id, x, y, w, h, label) => {
+  const g = mk('g', {class: 'el grp'});
+  mk('rect', {x, y, width: w, height: h, rx: 14}, g);
+  mk('text', {x: x + 14, y: y + 20}, g).textContent = label;
+  statics[id] = g;
+};
+grp('gdb', 20, 200, 300, 180, 'Database handlers');
+grp('gapi', 340, 200, 330, 180, 'API handlers');
+const lbl = (id, x, y, text, anchor) => {
+  const t = mk('text', {class: 'el lbl', x, y, 'text-anchor': anchor || 'start'});
+  t.textContent = text;
+  statics[id] = t;
+};
+lbl('lbl_svc', 30, 38, 'Services');
+lbl('lbl_jobs', 30, 196, 'Jobs');
+lbl('lbl_brands', 30, 380, 'Brands (handlers)');
+lbl('lbl_help', 650, 522, 'Connection helpers', 'end');
+
+const lineEls = {};
+const lineLayer = mk('g', {});
+for (const id in LINES) lineEls[id] = mk('line', {class: 'ln'}, lineLayer);
+
+const els = {};
+for (const id in E) {
+  const e = E[id], [w, h] = SIZE[e.k];
+  const g = mk('g', {class: 'el ' + e.k});
+  mk('rect', {x: -w / 2, y: -h / 2, width: w, height: h, rx: 9, fill: 'var(--bg)'}, g);
+  const inner = mk('g', {class: 'inner'}, g);
+  mk('rect', {class: 'halo', x: -w / 2 - 4, y: -h / 2 - 4, width: w + 8, height: h + 8, rx: 12, stroke: 'var(--pkt)'}, inner);
+  mk('rect', {class: 'box', x: -w / 2, y: -h / 2, width: w, height: h, rx: 9}, inner);
+  mk('text', {class: 't', x: 0, y: -4, 'text-anchor': 'middle'}, inner).textContent = e.t;
+  mk('text', {class: 's', x: 0, y: 15, 'text-anchor': 'middle'}, inner).textContent = e.s;
+  els[id] = g;
+}
+const pkt = mk('circle', {id: 'pkt', r: 7, cx: -50, cy: -50, class: 'gone'});
+
+let idx = 0, playing = true, raf = 0, timer = 0, part = 1;
+const speedSel = document.getElementById('speed');
+const speed = () => parseFloat(speedSel.value);
+const bar = document.getElementById('bar');
+STEPS.forEach((s, i) => {
+  const b = document.createElement('i');
+  b.title = 'Step ' + (i + 1);
+  if (i === 5) b.className = 'split';
+  b.onclick = () => { setPlaying(false); go(i); };
+  bar.appendChild(b);
+});
+
+function fillPre(pre, lines) {
+  pre.innerHTML = '';
+  lines.forEach(([txt, cls]) => {
+    const sp = document.createElement('span');
+    sp.textContent = txt || ' ';
+    if (cls) sp.className = cls;
+    pre.appendChild(sp);
+  });
+}
+
+function show(i) {
+  cancelAnimationFrame(raf);
+  clearTimeout(timer);
+  const s = STEPS[i];
+  const moved = s.part !== part;
+  part = s.part;
+  const P = POS[part];
+
+  for (const id in els) {
+    const [x, y] = P[id];
+    const cls = ['el', E[id].k];
+    if (!s.vis.includes(id)) cls.push('hide');
+    if (s.focus && !s.focus.includes(id)) cls.push('dim');
+    if (s.focus && s.focus.includes(id)) cls.push('on');
+    if (s.bad && s.bad.includes(id)) cls.push('bad');
+    els[id].setAttribute('class', cls.join(' '));
+    els[id].style.transform = `translate(${x}px, ${y}px)`;
+  }
+  for (const id in statics) {
+    const base = statics[id].tagName === 'g' ? 'el grp' : 'el lbl';
+    statics[id].setAttribute('class', base + (s.vis.includes(id) ? '' : ' hide'));
+  }
+  for (const id in LINES) {
+    const [a, b] = LINES[id];
+    const l = lineEls[id];
+    l.setAttribute('x1', P[a][0]); l.setAttribute('y1', P[a][1]);
+    l.setAttribute('x2', P[b][0]); l.setAttribute('y2', P[b][1]);
+    const st = s.lines && s.lines[id];
+    l.setAttribute('class', 'ln' + (st ? ' ' + st : '') + (moved ? ' late' : ''));
+  }
+
+  const code = CODE[s.code];
+  document.getElementById('codeTitle').textContent = code.t;
+  const badge = document.getElementById('codeBadge');
+  badge.textContent = code.b ? code.b[0] : '';
+  badge.className = 'badge' + (code.b ? ' ' + code.b[1] : '');
+  fillPre(document.getElementById('code'), code.l);
+  document.getElementById('codeNote').textContent = code.n || '';
+  const cfg = CFG[s.cfg];
+  document.getElementById('cfgTitle').textContent = cfg.t;
+  fillPre(document.getElementById('cfg'), cfg.l);
+
+  document.getElementById('count').textContent = `Step ${i + 1} of ${STEPS.length}`;
+  const chip = document.getElementById('chip');
+  chip.textContent = part === 1 ? 'Design A: grouped by connection type' : 'Design B: grouped by job';
+  chip.className = 'chip ' + (part === 1 ? 'a' : 'b');
+  document.getElementById('caption').textContent = s.c;
+  [...bar.children].forEach((b, j) => {
+    b.classList.toggle('done', j < i);
+    b.classList.toggle('cur', j === i);
+  });
+
+  const paths = s.paths || [];
+  const startDelay = moved ? 900 : 150;
+  let pi = 0;
+  const done = () => {
+    pkt.classList.add('gone');
+    if (playing) {
+      const dwell = 2600 + s.c.length * 18;
+      if (i < STEPS.length - 1) timer = setTimeout(() => go(i + 1), dwell / speed());
+      else setPlaying(false, true);
+    }
+  };
+  const runPath = () => {
+    if (pi >= paths.length) { done(); return; }
+    const pts = paths[pi].map(id => P[id]);
+    const lens = [0];
+    for (let j = 1; j < pts.length; j++) lens.push(lens[j - 1] + Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]));
+    const total = lens[lens.length - 1];
+    const dur = Math.max(500, total / 0.55) / speed();
+    pkt.classList.remove('gone');
+    const t0 = performance.now();
+    const frame = now => {
+      const t = Math.min(1, (now - t0) / dur);
+      const e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const d = e * total;
+      let j = 1;
+      while (j < lens.length - 1 && lens[j] < d) j++;
+      const f = (d - lens[j - 1]) / ((lens[j] - lens[j - 1]) || 1);
+      pkt.setAttribute('cx', pts[j - 1][0] + (pts[j][0] - pts[j - 1][0]) * f);
+      pkt.setAttribute('cy', pts[j - 1][1] + (pts[j][1] - pts[j - 1][1]) * f);
+      if (t < 1) raf = requestAnimationFrame(frame);
+      else { pi++; timer = setTimeout(runPath, 250 / speed()); }
+    };
+    raf = requestAnimationFrame(frame);
+  };
+  timer = setTimeout(runPath, startDelay / speed());
+}
+
+function go(i) { idx = Math.max(0, Math.min(STEPS.length - 1, i)); show(idx); }
+
+const playBtn = document.getElementById('play');
+function setPlaying(p, ended) {
+  playing = p;
+  playBtn.textContent = p ? 'Pause' : (ended ? 'Replay' : 'Play');
+  if (!p) clearTimeout(timer);
+}
+playBtn.onclick = () => {
+  if (playing) { setPlaying(false); return; }
+  const restart = playBtn.textContent === 'Replay';
+  setPlaying(true);
+  go(restart ? 0 : (idx < STEPS.length - 1 ? idx + 1 : 0));
+};
+document.getElementById('prev').onclick = () => { setPlaying(false); go(idx - 1); };
+document.getElementById('next').onclick = () => { setPlaying(false); go(idx + 1); };
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT') return;
+  if (e.code === 'Space') { e.preventDefault(); playBtn.click(); }
+  if (e.key === 'ArrowRight') { setPlaying(false); go(idx + 1); }
+  if (e.key === 'ArrowLeft') { setPlaying(false); go(idx - 1); }
+});
+
+go(0);
+requestAnimationFrame(() => requestAnimationFrame(() => svg.classList.remove('noanim')));
+</script>
+</body>
+</html>

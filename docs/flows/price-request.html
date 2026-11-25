@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yyai: price request over WhatsApp, step by step</title>
+<link rel="stylesheet" href="flow-player.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Price request over WhatsApp, step by step</h1>
+    <a class="back" href="../index.html">Back to the architecture</a>
+  </header>
+  <p class="intro">A customer asks Acme on WhatsApp, in Arabic, how much the 20 litre water bottle costs. The reply is sent automatically, because this project's rules allow it. The steps cover everything from the message arriving to the reply leaving.</p>
+
+  <svg id="stage" role="img" aria-label="yyai layers with the price request highlighted as it moves"></svg>
+
+  <div class="cap" aria-live="polite">
+    <div class="meta"><span id="count"></span><span id="phase" class="phase"></span><span id="chip" class="chip"></span></div>
+    <div id="caption" class="caption"></div>
+    <code id="data" class="data"></code>
+  </div>
+
+  <div class="controls">
+    <button id="prev" aria-label="Previous step">&#8592;</button>
+    <button id="play" class="primary">Pause</button>
+    <button id="next" aria-label="Next step">&#8594;</button>
+    <select id="speed" aria-label="Speed">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x</option>
+      <option value="2">2x</option>
+    </select>
+    <div class="bar" id="bar"></div>
+  </div>
+  <div class="hint">Space plays or pauses. The arrow keys step through. Click the bar to jump; the gaps mark the five phases. Below the dashed line is everything that runs as a separate program.</div>
+</div>
+
+<script>
+window.FLOW = {
+  height: 640,
+  boundaryY: 500,
+  rows: [
+    {key: 'entry', label: 'Entry', y: 70},
+    {key: 'flow', label: 'Workflows', y: 190},
+    {key: 'svc', label: 'Services', y: 310},
+    {key: 'hdl', label: 'Handlers', y: 430},
+    {key: 'ext', label: 'Outside programs', y: 570}
+  ],
+  nodes: {
+    api:       {row: 'entry', x: 315, t: 'API', s: 'routes, webhooks'},
+    worker:    {row: 'entry', x: 685, t: 'Worker', s: 'runs queued jobs'},
+    outbox:    {row: 'flow', x: 130, t: 'Outbox delivery', s: 'sends, retries'},
+    inbound:   {row: 'flow', x: 315, t: 'Inbound message', s: 'accept, save, queue'},
+    agent:     {row: 'flow', x: 685, t: 'Agent turn', s: 'loop, tool registry'},
+    messaging: {row: 'svc', x: 130, t: 'Messaging service', s: 'messaging job'},
+    conv:      {row: 'svc', x: 315, t: 'Conversation service', s: 'messages, turns, audit'},
+    catalogue: {row: 'svc', x: 500, t: 'Catalogue service', s: 'product matching'},
+    model:     {row: 'svc', x: 685, t: 'Model service', s: 'roles, checks, retries'},
+    pricing:   {row: 'svc', x: 870, t: 'Pricing service', s: 'inventory job'},
+    wah:       {row: 'hdl', x: 130, t: 'WhatsApp handler', s: 'MessagingPort'},
+    pers:      {row: 'hdl', x: 408, t: 'Persistence', s: 'our database only'},
+    modelh:    {row: 'hdl', x: 685, t: 'Model handler', s: 'OpenAI-compatible'},
+    alameen:   {row: 'hdl', x: 870, t: 'Al Ameen handler', s: 'InventoryPort'},
+    meta:      {row: 'ext', x: 130, t: 'Meta (WhatsApp)', s: 'via Cloudflare tunnel'},
+    pg:        {row: 'ext', x: 408, t: 'Postgres', s: 'our data, job queue'},
+    tf:        {row: 'ext', x: 685, t: 'TensorFold', s: 'model on the GPU'},
+    sql:       {row: 'ext', x: 870, t: 'SQL Server', s: 'Al Ameen database'}
+  },
+  waypoints: {'meta>api': [[30, 570], [30, 70]]},
+  steps: [
+    {phase: '1. The message arrives', p: ['meta', 'api'], c: "A customer asks on WhatsApp. Meta delivers it through the client's Cloudflare tunnel to our API.", d: 'POST /api/webhooks/whatsapp'},
+    {p: ['api', 'inbound'], c: "The API checks Meta's signature and passes the raw message to the inbound workflow.", d: 'InboundMessage.accept(raw)'},
+    {p: ['inbound', 'messaging', 'wah'], c: 'The messaging job is wired to the WhatsApp handler, which reads Meta\'s format.', d: 'MessagingPort → WhatsAppCloud.parse(raw)'},
+    {p: ['wah', 'messaging', 'inbound'], c: "It comes back as our own type. Meta's format stops here.", d: 'InboundMessage(source_id="wamid.A1", text="بكم قارورة ٢٠ لتر؟")'},
+    {p: ['inbound', 'conv', 'pers', 'pg'], c: "The message is saved under Meta's message ID, and an agent turn is queued. Both happen in one transaction.", d: 'INSERT … ON CONFLICT (source_id) DO NOTHING  ·  turn 881: received  ·  job run_turn(881)'},
+    {p: ['pg', 'pers', 'conv', 'inbound', 'api'], c: 'If Meta had sent the same message twice, the second copy would be ignored here. The API now answers Meta straight away.', d: '200 OK, in milliseconds. The slow work happens in the worker.'},
+
+    {phase: '2. The agent thinks', p: ['worker'], c: 'The worker picks up the queued job.', d: 'job run_turn(881)'},
+    {p: ['worker', 'agent'], c: 'It starts the agent turn workflow.', d: 'AgentTurn.run(881)'},
+    {p: ['agent', 'conv', 'pers', 'pg'], c: 'The conversation is locked, so a second message cannot start a crossing reply. The turn is marked running.', d: 'lock conversation 77  ·  turn 881: running'},
+    {p: ['pg', 'pers', 'conv', 'agent'], c: 'The recent history comes back.', d: 'last 20 messages'},
+    {p: ['agent'], c: "Our code builds the run context: which customer, which channel, which project rules. The model can't change it.", d: 'RunContext(customer=C-311, channel=whatsapp, auto_send=on)'},
+    {p: ['agent', 'model'], c: 'The agent asks the model service, passing the prompt and the tools this run may use.', d: 'role chat.default  ·  tools: [quote_price]'},
+    {p: ['model', 'modelh', 'tf'], c: 'This role is not allowed to leave the building, so the request goes to the local model.', d: 'allow_external=false  →  POST /v1/chat/completions'},
+    {p: ['tf', 'modelh', 'model'], c: "The model answers with a tool call. The model service checks it against the tool's schema.", d: 'quote_price({"query": "قارورة ٢٠ لتر"})  ✓ valid'},
+    {p: ['model', 'agent'], c: 'The checked tool call reaches the agent.', d: 'ToolCall(name="quote_price")'},
+    {p: ['agent'], c: 'The tool registry finds quote_price. It is read-only, so it needs no confirmation. It is a fixed two-step tool.', d: 'risk=read  ·  timeout=10s'},
+
+    {phase: '3. The tool runs', p: ['agent', 'catalogue', 'pers', 'pg'], c: 'Step one: find the product in our copy of the catalogue. Arabic, English and misspellings all match.', d: 'pg_trgm search on catalogue_items'},
+    {p: ['pg', 'pers', 'catalogue', 'agent'], c: 'The best match comes back as an exact item code.', d: 'CatalogueMatch(code="20-WTR", name="Water bottle 20L", score=0.91)'},
+    {p: ['agent', 'pricing'], c: 'Step two: get the live price for that code, for this customer.', d: 'PricingService.get_price("20-WTR", customer=C-311)'},
+    {p: ['pricing', 'alameen', 'sql'], c: 'The inventory job is wired to Al Ameen. It runs a read-only query with a time limit.', d: 'SELECT … WHERE code = ?   (read-only login, 5 s timeout)'},
+    {p: ['sql', 'alameen', 'pricing'], c: "The price comes back as our type. VAT is exactly as Al Ameen states it, because the ERP is the source of truth.", d: 'ItemPrice(code="20-WTR", price=4.50, currency="AED", vat_included=True)'},
+    {p: ['pricing', 'agent'], c: 'The quote goes back to the agent as the tool result.', d: 'Quote("Water bottle 20L", 4.50 AED)'},
+    {p: ['agent', 'conv', 'pers', 'pg'], c: 'The tool call and its result are written to the audit log.', d: 'INSERT INTO audit_log'},
+
+    {phase: '4. The reply is written', p: ['agent', 'model', 'modelh', 'tf'], c: 'The agent asks the model again, this time with the result.', d: 'POST /v1/chat/completions'},
+    {p: ['tf', 'modelh', 'model', 'agent'], c: "The model writes the reply in the customer's language. There are no more tool calls, so the loop ends.", d: '"سعر قارورة الماء ٢٠ لتر هو ٤٫٥٠ درهم."'},
+    {p: ['agent', 'conv', 'pers', 'pg'], c: 'The project allows auto-send, so the reply goes into the outbox. The turn is marked sending, and the lock is released.', d: 'outbox 5512: pending  ·  turn 881: sending'},
+
+    {phase: '5. The reply is delivered', p: ['worker'], c: "The worker's outbox job picks up pending messages.", d: 'job deliver_outbox'},
+    {p: ['worker', 'outbox'], c: 'It starts the outbox delivery workflow.', d: 'OutboxDelivery.run()'},
+    {p: ['outbox', 'messaging', 'wah'], c: 'The WhatsApp handler checks the 24-hour window. The customer wrote minutes ago, so a free-form reply is allowed.', d: '24-hour window: open'},
+    {p: ['wah', 'meta'], c: 'The reply is sent to Meta.', d: 'POST /messages'},
+    {p: ['meta', 'wah', 'messaging', 'outbox'], c: 'Meta confirms, and the confirmation comes back up.', d: 'message id wamid.B7'},
+    {p: ['outbox', 'conv', 'pers', 'pg'], c: 'The outbox row and the turn are marked sent. If sending had failed, the job would have retried later.', d: 'outbox 5512: sent  ·  turn 881: sent'},
+    {p: ['meta'], c: 'The customer receives the price.', d: '"سعر قارورة الماء ٢٠ لتر هو ٤٫٥٠ درهم."'}
+  ]
+};
+</script>
+<script src="flow-player.js"></script>
+</body>
+</html>

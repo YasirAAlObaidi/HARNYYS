@@ -1,0 +1,2 @@
+# Secrets for this box. Only .env.example is committed.
+.env

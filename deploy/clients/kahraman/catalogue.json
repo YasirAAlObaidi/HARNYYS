@@ -1,0 +1,139 @@
+{
+  "_note": "SAMPLE DATA - replace with the real Kahraman catalogue",
+  "currency": "AED",
+  "vat_included": true,
+  "items": [
+    {
+      "code": "SAMPLE-001",
+      "name_en": "Ethiopia Yirgacheffe Whole Beans 250g (sample)",
+      "name_ar": "قهوة إثيوبية يرغاشيف حبوب كاملة 250 جم (عينة)",
+      "category": "Coffee Beans",
+      "description": "Light roast single-origin beans with floral and citrus notes. Best for filter and pour-over.",
+      "price": 48.00,
+      "in_stock": true,
+      "quantity": 40,
+      "attributes": {"type": "whole_bean", "origin": "Ethiopia", "roast": "light", "weight_g": 250}
+    },
+    {
+      "code": "SAMPLE-002",
+      "name_en": "Colombia Supremo Whole Beans 1kg (sample)",
+      "name_ar": "قهوة كولومبية سوبريمو حبوب كاملة 1 كجم (عينة)",
+      "category": "Coffee Beans",
+      "description": "Medium roast, smooth and balanced with caramel and nut notes. Works for espresso and filter.",
+      "price": 135.00,
+      "in_stock": true,
+      "quantity": 25,
+      "attributes": {"type": "whole_bean", "origin": "Colombia", "roast": "medium", "weight_g": 1000}
+    },
+    {
+      "code": "SAMPLE-003",
+      "name_en": "Brazil Santos Ground Coffee 250g (sample)",
+      "name_ar": "قهوة برازيلية سانتوس مطحونة 250 جم (عينة)",
+      "category": "Ground Coffee",
+      "description": "Medium-dark roast, low acidity, chocolate and nut notes. Ground for moka pot and drip machines.",
+      "price": 38.00,
+      "in_stock": true,
+      "quantity": 60,
+      "attributes": {"type": "ground", "origin": "Brazil", "roast": "medium-dark", "weight_g": 250, "grind": "medium"}
+    },
+    {
+      "code": "SAMPLE-004",
+      "name_en": "Arabic Coffee with Cardamom, Ground 500g (sample)",
+      "name_ar": "قهوة عربية بالهيل مطحونة 500 جم (عينة)",
+      "category": "Ground Coffee",
+      "description": "Light-roast Arabic coffee ground with green cardamom, ready for the dallah.",
+      "price": 55.00,
+      "in_stock": true,
+      "quantity": 80,
+      "attributes": {"type": "ground", "origin": "Blend", "roast": "light", "weight_g": 500, "flavour": "cardamom"}
+    },
+    {
+      "code": "SAMPLE-005",
+      "name_en": "Espresso Blend Dark Roast Whole Beans 1kg (sample)",
+      "name_ar": "خلطة إسبريسو تحميص غامق حبوب كاملة 1 كجم (عينة)",
+      "category": "Coffee Beans",
+      "description": "Dark roast blend with a heavy body and a thick crema. Made for espresso and milk drinks.",
+      "price": 120.00,
+      "in_stock": true,
+      "quantity": 30,
+      "attributes": {"type": "whole_bean", "origin": "Blend", "roast": "dark", "weight_g": 1000}
+    },
+    {
+      "code": "SAMPLE-006",
+      "name_en": "Kenya AA Whole Beans 250g (sample)",
+      "name_ar": "قهوة كينية AA حبوب كاملة 250 جم (عينة)",
+      "category": "Coffee Beans",
+      "description": "Medium-light roast with bright berry notes and a juicy finish. Currently out of stock.",
+      "price": 52.00,
+      "in_stock": false,
+      "quantity": 0,
+      "attributes": {"type": "whole_bean", "origin": "Kenya", "roast": "medium-light", "weight_g": 250}
+    },
+    {
+      "code": "SAMPLE-007",
+      "name_en": "Home Espresso Machine 15 Bar (sample)",
+      "name_ar": "ماكينة إسبريسو منزلية 15 بار (عينة)",
+      "category": "Coffee Machines",
+      "description": "Semi-automatic espresso machine with a steam wand for milk. 1.5 litre removable water tank.",
+      "price": 899.00,
+      "in_stock": true,
+      "quantity": 8,
+      "attributes": {"type": "espresso_machine", "pressure_bar": 15, "power_w": 1350, "tank_ml": 1500, "warranty_months": 12}
+    },
+    {
+      "code": "SAMPLE-008",
+      "name_en": "Automatic Bean-to-Cup Coffee Machine (sample)",
+      "name_ar": "ماكينة قهوة أوتوماتيكية مع مطحنة مدمجة (عينة)",
+      "category": "Coffee Machines",
+      "description": "Fully automatic machine with built-in grinder and milk frother. One-touch espresso, americano and cappuccino.",
+      "price": 2450.00,
+      "in_stock": true,
+      "quantity": 3,
+      "attributes": {"type": "bean_to_cup_machine", "pressure_bar": 19, "power_w": 1450, "tank_ml": 1800, "warranty_months": 24}
+    },
+    {
+      "code": "SAMPLE-009",
+      "name_en": "Electric Conical Burr Coffee Grinder (sample)",
+      "name_ar": "مطحنة قهوة كهربائية بقرص طحن مخروطي (عينة)",
+      "category": "Grinders",
+      "description": "Electric grinder with 30 grind settings from espresso to French press. 250g bean hopper.",
+      "price": 310.00,
+      "in_stock": true,
+      "quantity": 12,
+      "attributes": {"type": "electric_grinder", "burr": "conical", "settings": 30, "hopper_g": 250, "power_w": 150}
+    },
+    {
+      "code": "SAMPLE-010",
+      "name_en": "Manual Hand Coffee Grinder (sample)",
+      "name_ar": "مطحنة قهوة يدوية (عينة)",
+      "category": "Grinders",
+      "description": "Portable hand grinder with stainless steel burrs and an adjustable grind. Holds 25g of beans.",
+      "price": 165.00,
+      "in_stock": true,
+      "quantity": 15,
+      "attributes": {"type": "manual_grinder", "burr": "stainless_steel", "capacity_g": 25}
+    },
+    {
+      "code": "SAMPLE-011",
+      "name_en": "Stainless Steel Moka Pot 6 Cups (sample)",
+      "name_ar": "إبريق موكا من الستانلس ستيل 6 أكواب (عينة)",
+      "category": "Accessories",
+      "description": "Stovetop espresso maker for 6 small cups. Works on gas and electric hobs.",
+      "price": 95.00,
+      "in_stock": true,
+      "quantity": 20,
+      "attributes": {"type": "moka_pot", "material": "stainless_steel", "cups": 6, "capacity_ml": 300}
+    },
+    {
+      "code": "SAMPLE-012",
+      "name_en": "Descaling Solution for Coffee Machines 500ml (sample)",
+      "name_ar": "محلول إزالة الكلس لماكينات القهوة 500 مل (عينة)",
+      "category": "Accessories",
+      "description": "Liquid descaler for espresso and automatic machines. One bottle covers about 4 descaling cycles.",
+      "price": 35.00,
+      "in_stock": true,
+      "quantity": 50,
+      "attributes": {"type": "descaler", "volume_ml": 500}
+    }
+  ]
+}

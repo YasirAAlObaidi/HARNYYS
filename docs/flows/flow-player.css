@@ -1,0 +1,73 @@
+:root{
+  --bg:#fafaf8;--ink:#1f1e1c;--muted:#6b6a64;--line:#d8d6ce;--band:#f3f1ea;--band-on:#e8e4d8;--btn:#ffffff;
+  --front:#5F5E5A;--front-bg:#F1EFE8;
+  --entry:#993C1D;--entry-bg:#FAECE7;
+  --flow:#993556;--flow-bg:#FBEAF0;
+  --svc:#534AB7;--svc-bg:#EEEDFE;
+  --hdl:#0F6E56;--hdl-bg:#E1F5EE;
+  --ext:#5F5E5A;--ext-bg:#ECEAE2;
+  --pkt:#EF9F27;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1b1b1a;--ink:#ecebe6;--muted:#9c9a92;--line:#3a3936;--band:#232322;--band-on:#302f2c;--btn:#2a2a28;
+    --front:#B4B2A9;--front-bg:#2C2C2A;
+    --entry:#F0997B;--entry-bg:#4A1B0C;
+    --flow:#ED93B1;--flow-bg:#4B1528;
+    --svc:#AFA9EC;--svc-bg:#26215C;
+    --hdl:#5DCAA5;--hdl-bg:#04342C;
+    --ext:#B4B2A9;--ext-bg:#2C2C2A;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 20px 40px}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:4px}
+h1{font-size:20px;font-weight:500;margin:0}
+.back{font-size:13px;color:var(--muted);text-decoration:none}
+.back:hover{color:var(--ink)}
+.intro{font-size:14px;color:var(--muted);margin:4px 0 12px}
+svg{width:100%;height:auto;display:block}
+.band rect{fill:var(--band);transition:fill .3s}
+.band.on rect{fill:var(--band-on)}
+.band text{fill:var(--muted);font-size:12px;letter-spacing:.3px}
+.edge{stroke:var(--line);stroke-width:1.5;fill:none;stroke-linejoin:round}
+.edge.hot{stroke:var(--pkt);stroke-width:2.5;stroke-dasharray:6 6;animation:dash .6s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-12}}
+.node{transition:opacity .3s}
+.node rect.box{stroke-width:1}
+.node rect.halo{fill:none;stroke-width:8;opacity:0;transition:opacity .25s}
+.node .t{font-size:14px;font-weight:500;fill:var(--ink)}
+.node .s{font-size:11.5px;fill:var(--muted)}
+.node.dim{opacity:.3}
+.node.on rect.box{stroke-width:2.5}
+.node.on rect.halo{opacity:.28}
+.k-front rect.box{fill:var(--front-bg);stroke:var(--front)} .k-front rect.halo{stroke:var(--front)}
+.k-entry rect.box{fill:var(--entry-bg);stroke:var(--entry)} .k-entry rect.halo{stroke:var(--entry)}
+.k-flow rect.box{fill:var(--flow-bg);stroke:var(--flow)}    .k-flow rect.halo{stroke:var(--flow)}
+.k-svc rect.box{fill:var(--svc-bg);stroke:var(--svc)}       .k-svc rect.halo{stroke:var(--svc)}
+.k-hdl rect.box{fill:var(--hdl-bg);stroke:var(--hdl)}       .k-hdl rect.halo{stroke:var(--hdl)}
+.k-ext rect.box{fill:var(--ext-bg);stroke:var(--ext)}       .k-ext rect.halo{stroke:var(--ext)}
+.boundary{stroke:var(--muted);stroke-dasharray:4 5;stroke-width:1;opacity:.6}
+.boundary-t{fill:var(--muted);font-size:11.5px}
+#pkt{fill:var(--pkt);transition:opacity .25s}
+#pkt.gone{opacity:0}
+#pktRing{fill:none;stroke:var(--pkt);stroke-width:2;opacity:0}
+#pktRing.pulse{animation:pulse .9s ease-out}
+@keyframes pulse{0%{opacity:.9;r:8}100%{opacity:0;r:30}}
+.cap{min-height:112px;margin-top:10px;padding:14px 18px;border:1px solid var(--line);border-radius:12px}
+.meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.chip{padding:2px 8px;border-radius:99px;font-size:12px}
+.phase{font-size:12.5px;color:var(--ink)}
+.caption{font-size:18px;margin:6px 0 6px}
+code.data{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);unicode-bidi:plaintext}
+.controls{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.controls button{border:1px solid var(--line);background:var(--btn);color:var(--ink);border-radius:8px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
+.controls button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);min-width:84px}
+.controls select{border:1px solid var(--line);background:var(--btn);color:var(--ink);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px}
+.bar{display:flex;gap:3px;flex:1;min-width:200px;margin-left:6px}
+.bar i{flex:1;height:8px;border-radius:3px;background:var(--line);cursor:pointer}
+.bar i.done{background:var(--muted)}
+.bar i.cur{background:var(--pkt)}
+.bar i.split{margin-left:7px}
+.hint{font-size:12px;color:var(--muted);margin-top:10px}

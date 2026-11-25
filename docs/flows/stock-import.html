@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yyai: stock import from Excel, step by step</title>
+<link rel="stylesheet" href="flow-player.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Stock import from Excel, step by step</h1>
+    <a class="back" href="../index.html">Back to the architecture</a>
+  </header>
+  <p class="intro">Acme's inventory manager uploads a stock sheet in the web app and asks the agent to update Al Ameen. This project allows writes, but only through the stock import tool, and only after the person who asked confirms a preview. The model never writes SQL itself.</p>
+
+  <svg id="stage" role="img" aria-label="yyai layers with the stock import highlighted as it moves"></svg>
+
+  <div class="cap" aria-live="polite">
+    <div class="meta"><span id="count"></span><span id="phase" class="phase"></span><span id="chip" class="chip"></span></div>
+    <div id="caption" class="caption"></div>
+    <code id="data" class="data"></code>
+  </div>
+
+  <div class="controls">
+    <button id="prev" aria-label="Previous step">&#8592;</button>
+    <button id="play" class="primary">Pause</button>
+    <button id="next" aria-label="Next step">&#8594;</button>
+    <select id="speed" aria-label="Speed">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x</option>
+      <option value="2">2x</option>
+    </select>
+    <div class="bar" id="bar"></div>
+  </div>
+  <div class="hint">Space plays or pauses. The arrow keys step through. Click the bar to jump; the gaps mark the four phases. If Al Ameen turns out to have its own import feature, step 22 would hand it an import file instead of writing rows directly. That hasn't been checked yet.</div>
+</div>
+
+<script>
+window.FLOW = {
+  height: 760,
+  boundaryY: 620,
+  rows: [
+    {key: 'front', label: 'Frontend', y: 70},
+    {key: 'entry', label: 'Entry', y: 190},
+    {key: 'flow', label: 'Workflows', y: 310},
+    {key: 'svc', label: 'Services', y: 430},
+    {key: 'hdl', label: 'Handlers', y: 550},
+    {key: 'ext', label: 'Outside programs', y: 690}
+  ],
+  nodes: {
+    web:       {row: 'front', x: 315, t: 'Web app', s: 'staff chat, previews'},
+    api:       {row: 'entry', x: 315, t: 'API', s: 'routes, uploads'},
+    worker:    {row: 'entry', x: 685, t: 'Worker', s: 'runs queued jobs'},
+    chat:      {row: 'flow', x: 315, t: 'Chat workflow', s: 'accept, save, stream'},
+    agent:     {row: 'flow', x: 685, t: 'Agent turn', s: 'loop, tool registry'},
+    files:     {row: 'svc', x: 130, t: 'File service', s: 'uploads, parsing'},
+    conv:      {row: 'svc', x: 315, t: 'Conversation service', s: 'messages, turns, audit'},
+    catalogue: {row: 'svc', x: 500, t: 'Catalogue service', s: 'product matching'},
+    model:     {row: 'svc', x: 685, t: 'Model service', s: 'roles, checks, retries'},
+    stock:     {row: 'svc', x: 870, t: 'Stock service', s: 'previews, imports'},
+    pers:      {row: 'hdl', x: 408, t: 'Persistence', s: 'our database and files'},
+    modelh:    {row: 'hdl', x: 685, t: 'Model handler', s: 'OpenAI-compatible'},
+    alameen:   {row: 'hdl', x: 870, t: 'Al Ameen handler', s: 'InventoryPort'},
+    pg:        {row: 'ext', x: 408, t: 'Postgres and disk', s: 'our data and files'},
+    tf:        {row: 'ext', x: 685, t: 'TensorFold', s: 'model on the GPU'},
+    sql:       {row: 'ext', x: 870, t: 'SQL Server', s: 'Al Ameen database'}
+  },
+  steps: [
+    {phase: '1. Upload', p: ['web', 'api'], c: 'The inventory manager attaches stock.xlsx and writes: "update stock from this sheet".', d: 'POST /api/files  ·  POST /api/chat'},
+    {p: ['api', 'chat'], c: 'The API checks the login and passes both to the chat workflow.', d: 'Chat.accept(message, file)'},
+    {p: ['chat', 'files', 'pers', 'pg'], c: 'The file is stored on our side. Nothing has touched Al Ameen yet.', d: 'file f-204 saved'},
+    {p: ['chat', 'conv', 'pers', 'pg'], c: 'The message is saved and an agent turn is queued.', d: 'turn 902: received  ·  job run_turn(902)'},
+
+    {phase: '2. Preview', p: ['worker', 'agent'], c: 'The worker picks up the turn and starts the agent.', d: 'AgentTurn.run(902)'},
+    {p: ['agent', 'conv', 'pers', 'pg'], c: 'The conversation is locked and the history loaded. Our code builds the run context from the login, not from the model.', d: 'RunContext(user=S-12, role=inventory_manager, writes=allowed, confirm=required)'},
+    {p: ['agent', 'model', 'modelh', 'tf'], c: 'The model sees the message and only the tools this user may use.', d: 'tools: [preview_stock_import, apply_stock_import, …]'},
+    {p: ['tf', 'modelh', 'model', 'agent'], c: 'It calls the preview tool. A preview changes nothing.', d: 'preview_stock_import({"file_id": "f-204"})  ✓ valid'},
+    {p: ['agent', 'files', 'pers', 'pg'], c: 'The tool reads the sheet and checks every row: is there a code, and is the quantity a number?', d: '125 rows read  ·  125 well-formed'},
+    {p: ['agent', 'catalogue', 'pers', 'pg'], c: 'Each row is matched to a known item code in our copy of the catalogue.', d: '123 matched  ·  2 unknown codes'},
+    {p: ['agent', 'stock', 'alameen', 'sql'], c: 'Current stock for those items is read from Al Ameen. This is still read-only.', d: 'SELECT …   (read-only login)'},
+    {p: ['sql', 'alameen', 'stock'], c: 'The current levels come back as our type.', d: 'StockLevel × 123'},
+    {p: ['stock', 'pers', 'pg'], c: 'The stock service works out exactly what would change and saves that as a preview.', d: 'preview p-77: 118 changes, 5 unchanged, 2 rejected'},
+    {p: ['pg', 'pers', 'stock', 'agent'], c: 'The preview goes back to the agent.', d: 'Preview(p-77)'},
+    {p: ['agent', 'model', 'modelh', 'tf', 'modelh', 'model', 'agent'], c: 'The model summarises the preview in plain words.', d: '"118 items will change. 2 rows have unknown codes. Confirm?"'},
+    {p: ['agent', 'conv', 'pers', 'pg'], c: 'The reply is saved with a Confirm button. The turn pauses until someone confirms, and the lock is released.', d: 'turn 902: awaiting_confirmation'},
+    {p: ['pg', 'pers', 'conv', 'chat', 'api', 'web'], c: 'The manager sees the summary and the full list of changes on screen.', d: 'live update to the web app'},
+
+    {phase: '3. Confirm and write', p: ['web', 'api'], c: 'The manager checks the list and presses Confirm.', d: 'POST /api/confirm/p-77'},
+    {p: ['api', 'chat', 'conv', 'pers', 'pg'], c: 'The confirmation is recorded against the paused turn, and the turn is queued again.', d: 'turn 902: running  ·  confirmed by S-12'},
+    {p: ['worker', 'agent'], c: 'The worker resumes the turn. The confirmed apply tool runs. The model cannot skip the confirmation, because our code checks it.', d: 'apply_stock_import(p-77)  ·  confirmation found'},
+    {p: ['agent', 'stock', 'pers', 'pg'], c: 'First, the current values of every affected row are backed up on our side.', d: 'backup b-77: 118 rows'},
+    {p: ['stock', 'alameen', 'sql'], c: 'Then all changes are written in one transaction. If any row fails, nothing is written.', d: 'BEGIN … UPDATE × 118 … COMMIT   (write login, this project only)'},
+    {p: ['sql', 'alameen', 'stock', 'agent'], c: 'Al Ameen confirms, and the result goes back to the agent.', d: '118 updated  ·  0 failed'},
+    {p: ['agent', 'conv', 'pers', 'pg'], c: 'The audit log records who asked, who confirmed, what changed and where the backup is.', d: 'INSERT INTO audit_log'},
+
+    {phase: '4. Report', p: ['agent', 'model', 'modelh', 'tf', 'modelh', 'model', 'agent'], c: 'The model writes a short report.', d: '"Done: 118 items updated. 2 rows skipped because of unknown codes."'},
+    {p: ['agent', 'conv', 'pers', 'pg'], c: 'The report is saved and the turn is marked done.', d: 'turn 902: done'},
+    {p: ['pg', 'pers', 'conv', 'chat', 'api', 'web'], c: 'The manager sees the result. Undoing it is possible from the backup.', d: 'live update to the web app'}
+  ]
+};
+</script>
+<script src="flow-player.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Keep the build context small and keep local state and secrets out of the image.
+.venv
+.git
+.gitignore
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+.import_linter_cache
+.mypy_cache
+tests
+.env
+.env.*
+Dockerfile
+.dockerignore

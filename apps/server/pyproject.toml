@@ -1,0 +1,98 @@
+[project]
+name = "yyai"
+version = "0.1.0"
+description = "yyai core: on-prem agentic system (server and worker)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.14",
+    "httpx>=0.28",
+    "pyyaml>=6.0",
+    "tzdata>=2024.1",  # zoneinfo has no timezone database on slim images without it
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "respx>=0.22",
+    "import-linter>=2.1",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yyai"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+    "db: needs the dev Postgres (127.0.0.1:55432); skipped cleanly when it is unreachable",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+# ---------------------------------------------------------------------------
+# Layer rules (docs/decisions/0002, 0003). Run with: uv run lint-imports
+# Each layer may import only the layer directly below it. `core` is shared.
+# `yyai.bootstrap`, `yyai.main` and `yyai.worker` are the composition root and
+# are deliberately outside these contracts.
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_package = "yyai"
+
+[[tool.importlinter.contracts]]
+name = "Layers: entry > workflows > services > handlers > core"
+type = "layers"
+layers = [
+    "yyai.entry",
+    "yyai.workflows",
+    "yyai.services",
+    "yyai.handlers",
+    "yyai.core",
+]
+
+[[tool.importlinter.contracts]]
+name = "No skipping: entry talks only to workflows"
+type = "forbidden"
+source_modules = ["yyai.entry"]
+forbidden_modules = ["yyai.services", "yyai.handlers"]
+allow_indirect_imports = true  # going through the layer below is the point
+
+[[tool.importlinter.contracts]]
+name = "No skipping: workflows talk only to services"
+type = "forbidden"
+source_modules = ["yyai.workflows"]
+forbidden_modules = ["yyai.handlers"]
+allow_indirect_imports = true  # going through the layer below is the point
+
+[[tool.importlinter.contracts]]
+name = "Services never call each other"
+type = "independence"
+modules = [
+    "yyai.services.catalogue",
+    "yyai.services.conversation",
+    "yyai.services.messaging",
+    "yyai.services.model",
+    "yyai.services.pricing",
+]
+
+[[tool.importlinter.contracts]]
+name = "Brand handlers never import each other"
+type = "independence"
+modules = [
+    "yyai.handlers.integrations.file_catalogue",
+    "yyai.handlers.integrations.webchat",
+    "yyai.handlers.integrations.whatsapp_cloud",
+]
