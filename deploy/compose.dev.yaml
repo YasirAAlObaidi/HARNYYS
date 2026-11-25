@@ -1,0 +1,31 @@
+# Developer Postgres: the database the tests and local runs use. Not for client boxes (that is compose.yaml).
+#
+# Start it from the repo root (scripts/setup-mac.sh does this for you):
+#   docker compose -f deploy/compose.dev.yaml up -d --wait
+#
+# Tests marked `db` connect to 127.0.0.1:55432 as yyai / yyai-dev (apps/server/tests/conftest.py). They create
+# and use their own database, yyai_test, so the `yyai` database here stays free for running the app locally.
+# The image is the one production uses, so pg_trgm and the UTF-8 locale that Arabic search relies on match.
+
+name: yyai-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: yyai
+      POSTGRES_PASSWORD: yyai-dev # dev only, never used on a client box
+      POSTGRES_DB: yyai
+    ports:
+      - "127.0.0.1:55432:5432" # this machine only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yyai -d yyai"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

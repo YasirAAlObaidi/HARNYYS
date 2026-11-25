@@ -1,6 +1,7 @@
 """Shared test setup.
 
-Unit tests need nothing. Tests marked `db` use a real Postgres: the dev server at 127.0.0.1:55432. They run
+Unit tests need nothing. Tests marked `db` use a real Postgres: the dev server at 127.0.0.1:55432, started with
+`docker compose -f deploy/compose.dev.yaml up -d --wait` (or `scripts/setup-mac.sh`). They run
 in their own database, `yyai_test`, which is created if missing, migrated with Alembic and emptied before
 every test, so they never touch the dev data in the `yyai` database. When Postgres cannot be reached the
 `db` tests are skipped with a reason instead of failing.

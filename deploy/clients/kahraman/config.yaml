@@ -38,10 +38,14 @@ models:
       vision: true
       context_tokens: 8192
 
+# Products, prices and stock: the product table in our database, the only source the agent quotes from.
+# It is loaded from Kahraman's Excel sheet (products.xlsx in this folder, until they send their own):
+#   docker compose -f deploy/compose.yaml run --rm server yyai products import /config/products.xlsx --apply
+# catalogue.json is the copy of their website the starter sheet was made from; nothing reads it any more.
 inventory:
-  brand: file_catalogue
+  brand: sql_products
   settings:
-    path: catalogue.json # relative to this folder
+    vat_included: true # used when the sheet has no vat_included column
 
 channels:
   whatsapp:

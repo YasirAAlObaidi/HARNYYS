@@ -11,6 +11,7 @@ from yyai.workflows.catalogue_sync import CatalogueSyncWorkflow
 from yyai.workflows.inbound import InboundWorkflow
 from yyai.workflows.maintenance import MaintenanceWorkflow
 from yyai.workflows.outbox import OutboxWorkflow
+from yyai.workflows.products import ProductSheetWorkflow
 from yyai.workflows.queries import ConversationQueries
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ class Workflows:
     catalogue_sync: CatalogueSyncWorkflow
     maintenance: MaintenanceWorkflow
     queries: ConversationQueries
+    products: ProductSheetWorkflow
     # Called by aclose(), last registered first, so the database closes after the things that use it.
     closers: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
 

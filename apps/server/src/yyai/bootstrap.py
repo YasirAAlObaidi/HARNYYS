@@ -22,12 +22,14 @@ from yyai.handlers.model.openai_compat import OpenAICompatModel
 from yyai.handlers.persistence.catalogue import CatalogueStore
 from yyai.handlers.persistence.conversations import ConversationStore
 from yyai.handlers.persistence.db import Database
+from yyai.handlers.persistence.products import ProductStore
 from yyai.handlers.ports import ChatModelPort, InventoryPort, MessagingPort
 from yyai.services.catalogue import CatalogueService
 from yyai.services.conversation import ConversationService
 from yyai.services.messaging import MessagingService
 from yyai.services.model import ModelService
 from yyai.services.pricing import PricingService
+from yyai.services.products import ProductService
 from yyai.workflows.agent.registry import ToolRegistry
 from yyai.workflows.agent.tools import build_product_tools
 from yyai.workflows.agent.turn import AgentTurnWorkflow
@@ -36,6 +38,7 @@ from yyai.workflows.container import Workflows
 from yyai.workflows.inbound import InboundWorkflow
 from yyai.workflows.maintenance import MaintenanceWorkflow
 from yyai.workflows.outbox import OutboxWorkflow
+from yyai.workflows.products import ProductSheetWorkflow
 from yyai.workflows.queries import ConversationQueries
 
 logger = logging.getLogger(__name__)
@@ -53,9 +56,14 @@ def _setting(settings: Mapping[str, Any], key: str, brand: str, where: str) -> A
     return value
 
 
-def _file_catalogue(settings: Mapping[str, Any], base_dir: Path) -> FileCatalogue:
+def _file_catalogue(settings: Mapping[str, Any], base_dir: Path, products: ProductStore) -> FileCatalogue:
     path = Path(str(_setting(settings, "path", "file_catalogue", "inventory")))
     return FileCatalogue(path=base_dir / path)  # an absolute path stays as it is
+
+
+def _sql_products(settings: Mapping[str, Any], base_dir: Path, products: ProductStore) -> ProductStore:
+    """The product table in our database, loaded from the client's Excel sheet (`yyai products import`)."""
+    return products
 
 
 def _whatsapp_cloud(channel: str, settings: Mapping[str, Any]) -> WhatsAppCloud:
@@ -78,8 +86,9 @@ def _openai_compat(role: str, config: ModelRoleConfig) -> OpenAICompatModel:
     return OpenAICompatModel(base_url=config.base_url, api_key=config.api_key)
 
 
-INVENTORY_BRANDS: dict[str, Callable[[Mapping[str, Any], Path], InventoryPort]] = {
+INVENTORY_BRANDS: dict[str, Callable[[Mapping[str, Any], Path, ProductStore], InventoryPort]] = {
     "file_catalogue": _file_catalogue,
+    "sql_products": _sql_products,
 }
 
 MESSAGING_BRANDS: dict[str, Callable[[str, Mapping[str, Any]], MessagingPort]] = {
@@ -100,10 +109,10 @@ def _choose[F](registry: Mapping[str, F], brand: str, where: str) -> F:
         raise ConfigError(f"{where}: unknown brand '{brand}'. Valid options: {options}") from None
 
 
-def _build_inventory(config: Config) -> InventoryPort:
+def _build_inventory(config: Config, products: ProductStore) -> InventoryPort:
     brand: BrandConfig = config.inventory
     factory = _choose(INVENTORY_BRANDS, brand.brand, "inventory")
-    return factory(brand.settings, config.base_dir)
+    return factory(brand.settings, config.base_dir, products)
 
 
 def _build_channels(config: Config) -> dict[str, MessagingPort]:
@@ -148,7 +157,8 @@ def build(config: Config) -> Workflows:
     db = Database(config.database_url)
     closers.append(db.aclose)
 
-    inventory = _build_inventory(config)
+    product_store = ProductStore(db)
+    inventory = _build_inventory(config, product_store)
     channels = _build_channels(config)
     providers = _build_providers(config)
     for handler in [inventory, *channels.values(), *providers.values()]:
@@ -160,6 +170,11 @@ def build(config: Config) -> Workflows:
     messaging = MessagingService(channels)
     catalogue = CatalogueService(inventory, CatalogueStore(db))
     pricing = PricingService(inventory)
+    products = ProductService(
+        product_store,
+        currency=config.client.currency,
+        vat_included=bool(config.inventory.settings.get("vat_included", True)),
+    )
     model = ModelService(config.models, providers)
 
     registry = ToolRegistry()
@@ -182,5 +197,6 @@ def build(config: Config) -> Workflows:
         catalogue_sync=CatalogueSyncWorkflow(catalogue),
         maintenance=MaintenanceWorkflow(conversations, config.worker.stale_after_s),
         queries=ConversationQueries(conversations),
+        products=ProductSheetWorkflow(products, catalogue),
         closers=closers,
     )

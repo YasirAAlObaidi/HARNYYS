@@ -60,7 +60,8 @@ def write_config(
     model = raw["models"]["chat.default"]
     model.update(base_url="https://model.test/v1", api_key=MODEL_KEY, external=False, allow_external=False)
     model["params"] = {"temperature": 0.3, "max_tokens": 800}  # drops the OpenRouter-only routing block
-    raw["inventory"]["settings"]["path"] = str(catalogue_path)
+    # A file the test can rewrite mid-conversation, in place of the product table the demo config uses.
+    raw["inventory"] = {"brand": "file_catalogue", "settings": {"path": str(catalogue_path)}}
     raw["channels"]["whatsapp"]["settings"] = {
         "phone_number_id": PHONE_NUMBER_ID,
         "access_token": ACCESS_TOKEN,

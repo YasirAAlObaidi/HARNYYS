@@ -73,6 +73,49 @@ class StockLevel(BaseModel):
     quantity: Decimal | None = None
 
 
+# --- Product table (the client's sheet) ---------------------------------------
+
+
+class ProductRecord(BaseModel):
+    """One product as the client's sheet gives it. The only source of prices and stock the agent may quote."""
+
+    code: str
+    name_en: str
+    name_ar: str | None = None
+    category: str | None = None
+    description: str | None = None
+    unit: str | None = None
+    price: Decimal | None = Field(None, description="None: no price, so the agent hands the chat to staff")
+    currency: str = "AED"
+    vat_included: bool = True
+    in_stock: bool | None = Field(None, description="None: stock unknown, so staff confirm it")
+    quantity: Decimal | None = None
+    url: str | None = None
+    image_url: str | None = None
+    attributes: dict[str, Any] = {}
+
+
+class SheetIssue(BaseModel):
+    """One problem in an uploaded sheet. `row` is the Excel row number the client sees, if it is about a row."""
+
+    row: int | None = None
+    column: str | None = None
+    message: str
+
+
+class ProductImportReport(BaseModel):
+    """What an import did, or would do. Nothing is changed while `issues` is not empty."""
+
+    source: str
+    rows: int = 0
+    added: list[str] = []
+    updated: list[str] = []
+    deactivated: list[str] = []
+    unchanged: int = 0
+    issues: list[SheetIssue] = []
+    applied: bool = False
+
+
 # --- Model ------------------------------------------------------------------
 
 
