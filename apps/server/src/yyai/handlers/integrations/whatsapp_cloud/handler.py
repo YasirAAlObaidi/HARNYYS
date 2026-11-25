@@ -78,7 +78,7 @@ class WhatsAppCloud:
 
     def _parse_message(self, raw: dict[str, Any], names: dict[str, str]) -> InboundMessage | None:
         # Meta is moving to business-scoped user IDs: `from` may be missing for users with usernames.
-        sender = raw.get("from") or raw.get("user_id")
+        sender = raw.get("from") or raw.get("from_user_id") or raw.get("user_id")
         source_id = raw.get("id")
         if not sender or not source_id:
             return None
@@ -150,7 +150,7 @@ def _contact_names(contacts: list[dict[str, Any]]) -> dict[str, str]:
     names: dict[str, str] = {}
     for contact in contacts:
         name = (contact.get("profile") or {}).get("name")
-        for key in ("wa_id", "user_id"):
+        for key in ("wa_id", "user_id", "from_user_id"):
             if contact.get(key) and name:
                 names[contact[key]] = name
     return names

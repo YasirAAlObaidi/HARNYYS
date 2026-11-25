@@ -24,6 +24,8 @@ from yyai.handlers.persistence.db import Database
 SERVER_DIR = Path(__file__).resolve().parent.parent
 REPO_DIR = SERVER_DIR.parent.parent
 KAHRAMAN_DIR = REPO_DIR / "deploy" / "clients" / "kahraman"
+# The 12-item sample catalogue the tests search. Kept apart from the real client data in KAHRAMAN_DIR.
+SAMPLE_CATALOGUE = Path(__file__).resolve().parent / "fixtures" / "sample_catalogue.json"
 
 PG_HOST = "127.0.0.1"
 PG_PORT = 55432
@@ -112,3 +114,8 @@ def server_dir() -> Path:
 @pytest.fixture(scope="session")
 def kahraman_dir() -> Path:
     return KAHRAMAN_DIR
+
+
+@pytest.fixture(scope="session")
+def sample_catalogue() -> Path:
+    return SAMPLE_CATALOGUE

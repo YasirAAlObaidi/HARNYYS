@@ -106,16 +106,14 @@ class Env:
 
 @pytest.fixture
 async def make_env(
-    clean_database: str, tmp_path: Path, kahraman_dir: Path, sql: psycopg.Connection
+    clean_database: str, tmp_path: Path, kahraman_dir: Path, sample_catalogue: Path, sql: psycopg.Connection
 ) -> AsyncIterator[Callable[..., Awaitable[Env]]]:
     """A factory, so a test can ask for a variant of the config. Everything it builds is closed afterwards."""
     opened: list[tuple[httpx.AsyncClient, Workflows]] = []
 
     async def factory(**config_overrides: Any) -> Env:
         catalogue_path = tmp_path / "catalogue.json"
-        catalogue_path.write_text(
-            (kahraman_dir / "catalogue.json").read_text(encoding="utf-8"), encoding="utf-8"
-        )
+        catalogue_path.write_text(sample_catalogue.read_text(encoding="utf-8"), encoding="utf-8")
         config = load_config(
             write_config(tmp_path, kahraman_dir, clean_database, catalogue_path, **config_overrides)
         )

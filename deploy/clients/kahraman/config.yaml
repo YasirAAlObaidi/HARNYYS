@@ -11,22 +11,25 @@ client:
 database_url: postgresql+psycopg://yyai:${POSTGRES_PASSWORD}@postgres:5432/yyai
 
 models:
-  # DEMO ONLY. This role sends chat text to a hosted copy of the same Qwen model that the client will
-  # run on their own machine. `external` marks the endpoint as outside the client's building and
-  # `allow_external` is the switch that permits it. Do not send real client data (real customer
-  # messages, real prices from their ERP) here until the client has agreed to it in writing.
+  # Which model answers customers is chosen in deploy/.env, not here. With no MODEL_* variables set it
+  # is the hosted Qwen on OpenRouter, which is for the DEMO ONLY: `external` marks the endpoint as outside
+  # the client's building and `allow_external` is the switch that permits it. Do not send real client data
+  # (real customer messages, real prices from their ERP) to an external model until the client has agreed
+  # to it in writing. The "local model" block in deploy/.env.example points the same role at llama.cpp
+  # (llama-server) on the host instead.
   chat.default:
     provider: openai_compat
-    base_url: https://openrouter.ai/api/v1
-    model: qwen/qwen3.8-27b
+    base_url: ${MODEL_BASE_URL:-https://openrouter.ai/api/v1}
+    model: ${MODEL_NAME:-qwen/qwen3.8-27b}
     api_key: ${MODEL_API_KEY}
-    external: true
-    allow_external: true
+    external: ${MODEL_EXTERNAL:-true}
+    allow_external: ${MODEL_ALLOW_EXTERNAL:-true}
     timeout_s: 90
     params:
       temperature: 0.3
       max_tokens: 800
       # OpenRouter routing: try DeepInfra first, fall back to other hosts of the model if it is down.
+      # Other servers (llama.cpp) ignore this setting.
       provider:
         order: [deepinfra]
         allow_fallbacks: true
@@ -34,26 +37,6 @@ models:
       tools: true
       vision: true
       context_tokens: 8192
-
-  # Alternative for the real install: the same model on the client's own machine, served by llama.cpp
-  # (llama-server). To use it, delete the chat.default block above and uncomment this one.
-  # host.docker.internal is the host machine as seen from inside the containers. On a Linux host, also
-  # uncomment extra_hosts on the worker service in deploy/compose.yaml.
-  #
-  # chat.default:
-  #   provider: openai_compat
-  #   base_url: http://host.docker.internal:8080/v1
-  #   model: qwen3.8-27b          # llama-server serves one model; the name is only a label
-  #   external: false
-  #   allow_external: false
-  #   timeout_s: 90
-  #   params:
-  #     temperature: 0.3
-  #     max_tokens: 800
-  #   capabilities:
-  #     tools: true
-  #     vision: true
-  #     context_tokens: 8192
 
 inventory:
   brand: file_catalogue

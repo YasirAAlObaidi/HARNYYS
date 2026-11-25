@@ -23,6 +23,9 @@ from yyai.workflows.agent.registry import Tool
 
 logger = logging.getLogger(__name__)
 
+# Below this catalogue match score, quote_price warns the model that the item may be the wrong product.
+WEAK_MATCH_SCORE = 0.5
+
 
 class SearchProductsArgs(BaseModel):
     query: str = Field(
@@ -44,7 +47,7 @@ class QuotePriceArgs(BaseModel):
 class ProductDetailsArgs(BaseModel):
     code: str = Field(
         min_length=1,
-        max_length=64,
+        max_length=200,  # codes can be web slugs (the demo catalogue has 94 characters), not only short SKUs
         description="The exact item code, copied from search_products or quote_price.",
     )
 
@@ -73,6 +76,7 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
         if not matches:
             return {"found": False}
         best = matches[0].item
+        match_score = matches[0].score
         live_price, stock = await _live(pricing, best.code)
         if live_price is not None:
             price, source = _num(live_price.price), "live"
@@ -94,12 +98,21 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
             "vat_included": vat_included,
             "in_stock": stock.in_stock if stock else None,
             "url": best.url,
+            "match_score": round(match_score, 2),
             "other_matches": [{"code": m.item.code, "name_en": m.item.name_en} for m in matches[1:]],
         }
-        if source != "live":
-            result["note"] = (
-                "Live price not available. Do not state a price as final; say staff will confirm it."
+        notes = []
+        if match_score < WEAK_MATCH_SCORE:
+            # The store keeps loose matches (score from 0.25) so that browsing works. For one quoted price a loose
+            # match is usually a different product that shares a word or a weight with what the customer asked for.
+            notes.append(
+                "Weak match: the product below may not be what the customer asked for. If name_en/name_ar is not "
+                "that product, say you could not find it, do not quote this price, and offer other_matches."
             )
+        if source != "live":
+            notes.append("Live price not available. Do not state a price as final; say staff will confirm it.")
+        if notes:
+            result["note"] = " ".join(notes)
         return result
 
     async def product_details(ctx: RunContext, args: ProductDetailsArgs) -> dict[str, Any]:

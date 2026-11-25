@@ -60,6 +60,9 @@ class ModelService:
             errors = _validation_errors(reply.tool_calls, validate)
             if errors:
                 logger.info("Model sent %d invalid tool call(s) on role %s; retrying once", len(errors), role)
+                for index, problem in errors.items():
+                    bad = reply.tool_calls[index]
+                    logger.info("Invalid tool call %s %s: %s", bad.name, bad.raw_arguments or bad.arguments, problem)
                 retry_messages = [
                     *messages,
                     ChatMessage(role="assistant", content=reply.text, tool_calls=reply.tool_calls),

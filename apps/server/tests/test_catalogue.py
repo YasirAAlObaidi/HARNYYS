@@ -1,4 +1,4 @@
-"""Catalogue sync and fuzzy search, using the sample catalogue shipped with the Kahraman demo config."""
+"""Catalogue sync and fuzzy search, using the 12-item sample catalogue in tests/fixtures/sample_catalogue.json."""
 
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ pytestmark = pytest.mark.db
 
 
 @pytest.fixture
-def inventory(kahraman_dir: Path) -> FileCatalogue:
-    return FileCatalogue(path=kahraman_dir / "catalogue.json")
+def inventory(sample_catalogue: Path) -> FileCatalogue:
+    return FileCatalogue(path=sample_catalogue)
 
 
 @pytest.fixture
@@ -67,9 +67,9 @@ async def test_sync_twice_does_not_duplicate(catalogue: CatalogueService, sql: p
 
 
 async def test_sync_removes_items_that_left_the_source_and_updates_changed_ones(
-    db: Database, tmp_path: Path, kahraman_dir: Path, sql: psycopg.Connection
+    db: Database, tmp_path: Path, sample_catalogue: Path, sql: psycopg.Connection
 ) -> None:
-    data = json.loads((kahraman_dir / "catalogue.json").read_text(encoding="utf-8"))
+    data = json.loads(sample_catalogue.read_text(encoding="utf-8"))
     path = tmp_path / "catalogue.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     service = CatalogueService(FileCatalogue(path=path), CatalogueStore(db))
@@ -87,10 +87,10 @@ async def test_sync_removes_items_that_left_the_source_and_updates_changed_ones(
 
 
 async def test_an_empty_inventory_never_wipes_the_existing_copy(
-    db: Database, tmp_path: Path, kahraman_dir: Path, sql: psycopg.Connection
+    db: Database, tmp_path: Path, sample_catalogue: Path, sql: psycopg.Connection
 ) -> None:
     path = tmp_path / "catalogue.json"
-    path.write_text((kahraman_dir / "catalogue.json").read_text(encoding="utf-8"), encoding="utf-8")
+    path.write_text(sample_catalogue.read_text(encoding="utf-8"), encoding="utf-8")
     service = CatalogueService(FileCatalogue(path=path), CatalogueStore(db))
     stored = await service.sync()
 
@@ -252,8 +252,8 @@ async def test_get_and_categories(synced: CatalogueService) -> None:
 # --- live prices come from the inventory, not from the copy ------------------------------------------------------
 
 
-async def test_pricing_reads_the_inventory_live(db: Database, tmp_path: Path, kahraman_dir: Path) -> None:
-    data = json.loads((kahraman_dir / "catalogue.json").read_text(encoding="utf-8"))
+async def test_pricing_reads_the_inventory_live(db: Database, tmp_path: Path, sample_catalogue: Path) -> None:
+    data = json.loads(sample_catalogue.read_text(encoding="utf-8"))
     path = tmp_path / "catalogue.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     inventory = FileCatalogue(path=path)
