@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
+from itertools import pairwise
 
 from yyai.core.text import normalize_for_search
 from yyai.core.types import CatalogueItem, CatalogueMatch
@@ -31,6 +32,18 @@ MODEL_NUMBER_MIN_DIGITS = 3
 # look-alike well below tools.WEAK_MATCH_SCORE, so it is offered as an alternative but never quoted.
 NUMBER_MISMATCH_FACTOR = 0.4
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+_TOKEN = re.compile(r"[^\W_]+")  # runs of letters and digits, in any script
+# A number with a unit is a size, not a model code.
+_SIZE = re.compile(
+    r"\d+(?:g|gr|grs|gm|gms|kg|kgs|kilo|ml|l|ltr|lt|bar|w|kw|v|cm|mm|m|oz|lb|lbs|pcs|pc|x|cups?)"
+)
+_COLOURS = frozenset(
+    {
+        *("black", "white", "red", "grey", "gray", "silver", "blue", "green", "yellow", "pink", "orange"),
+        *("brown", "gold", "cream", "beige", "chrome", "matte"),
+        *("اسود", "ابيض", "احمر", "رمادي", "فضي", "ازرق", "اخضر", "اصفر", "وردي", "برتقالي", "بني", "ذهبي"),
+    }
+)
 
 
 class CatalogueService:
@@ -55,9 +68,13 @@ class CatalogueService:
             return []
         candidates = await self._store.search(normalized, max(limit * CANDIDATES_PER_RESULT, MIN_CANDIDATES))
         wanted = model_numbers(normalized)
+        wanted_codes = model_codes(normalized)
         ranked: list[tuple[CatalogueMatch, bool, bool]] = []
         for match in candidates:
-            agreement = number_agreement(wanted, _name_numbers(match.item))
+            agreement = _agreement(
+                number_agreement(wanted, _name_numbers(match.item)),
+                code_agreement(wanted_codes, _name_codes(match.item)),
+            )
             if agreement is False:
                 match = match.model_copy(update={"score": match.score * NUMBER_MISMATCH_FACTOR})
             ranked.append((match, agreement is True, _name_contains(match.item, normalized)))
@@ -97,9 +114,62 @@ def number_agreement(wanted: set[str], offered: set[str]) -> bool | None:
     return bool(wanted & offered)
 
 
+def model_codes(normalized_text: str) -> set[str]:
+    """Short model codes that mix letters and digits, such as "f5", "f64", "m6" or "c1".
+
+    One digit is enough here: "F5" and "F4" are different grinders. Sizes ("600gr", "2kg", "15bar") are not
+    codes. A code written in two parts in a product name ("CBR 101") is also matched as "cbr101".
+    """
+    return {token for token in _TOKEN.findall(normalized_text) if _is_code(token)}
+
+
+def code_agreement(wanted: set[str], offered: set[str]) -> bool | None:
+    """True if the item carries one of the customer's model codes, False if it carries none of them (even when it
+    has no code at all: "F5 grinder" never means a grinder cleaner), None if the customer named no code."""
+    if not wanted:
+        return None
+    return bool(wanted & offered)
+
+
+def same_product(a: CatalogueItem, b: CatalogueItem) -> bool:
+    """Whether two items are the same product in another colour: "F4 A (Black)" and "F4 A (Red)" are,
+    "Audrey (Grey, 1 Group)" and "Audrey (Grey, 2 Groups)" are not."""
+    return _without_colour(a.name_en) == _without_colour(b.name_en)
+
+
+def _agreement(*checks: bool | None) -> bool | None:
+    if False in checks:
+        return False
+    return True if True in checks else None
+
+
+def _is_code(token: str) -> bool:
+    has_letter = any(char.isalpha() for char in token)
+    has_digit = any(char.isdigit() for char in token)
+    return has_letter and has_digit and not _SIZE.fullmatch(token)
+
+
 def _name_numbers(item: CatalogueItem) -> set[str]:
     names = " ".join(name for name in (item.name_en, item.name_ar) if name)
     return model_numbers(normalize_for_search(names))
+
+
+def _name_codes(item: CatalogueItem) -> set[str]:
+    names = normalize_for_search(" ".join(name for name in (item.name_en, item.name_ar) if name))
+    tokens = _TOKEN.findall(names)
+    codes = {token for token in tokens if _is_code(token)}
+    # "CBR 101" and "HB-M6E": also the joined forms "cbr101", "m6e", so a customer who writes them joined matches.
+    codes.update(
+        first + second
+        for first, second in pairwise(tokens)
+        if _is_code(first + second) and (first.isalpha() != second.isalpha())
+    )
+    return codes
+
+
+def _without_colour(name: str) -> str:
+    words = _TOKEN.findall(normalize_for_search(name))
+    return " ".join(word for word in words if word not in _COLOURS)
 
 
 def _name_contains(item: CatalogueItem, normalized_query: str) -> bool:

@@ -92,6 +92,7 @@ modules = [
     "yyai.services.model",
     "yyai.services.pricing",
     "yyai.services.products",
+    "yyai.services.requests",
 ]
 
 [[tool.importlinter.contracts]]

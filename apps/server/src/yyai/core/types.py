@@ -204,3 +204,38 @@ class RunContext(BaseModel):
     client_name: str
     currency: str
     auto_send: bool
+
+
+# --- What the agent records for staff ------------------------------------------
+
+# Why a chat is handed to staff. The database table checks the same list.
+HandoverReason = Literal[
+    "missing_price", "unclear_item", "asked_for_human", "complaint", "large_order", "other"
+]
+HandoverSource = Literal["tool", "safety_net"]
+
+
+class QuoteRequestRecord(BaseModel):
+    """A customer asking for a formal quote. Staff send the quote; the agent never does."""
+
+    id: int
+    conversation_id: int
+    code: str
+    product_name: str
+    quantity: Decimal
+    unit: str | None
+    area: str | None
+    note: str | None
+    status: str
+    created: bool  # False when an open request for the same product was updated instead
+
+
+class HandoverRecord(BaseModel):
+    """A chat that staff must answer. At most one is open per chat."""
+
+    id: int
+    conversation_id: int
+    reason: HandoverReason
+    summary: str | None
+    source: HandoverSource
+    created: bool  # False when the chat already had an open handover

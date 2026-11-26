@@ -104,6 +104,24 @@ docker compose -f deploy/compose.yaml run --rm -v "$PWD:/out" server yyai produc
 
 The sheet's columns are `code`, `name_en`, `name_ar`, `category`, `unit`, `price`, `in_stock`, `quantity`, `description`, `url` and `image_url`. Common English and Arabic headings also work, for example `Item Code`, `Price (AED)`, `الرمز`, `السعر` and `الكمية`. Any other column is kept as a product detail. Details are searchable but are never used as a price. The full list is in `apps/server/src/yyai/services/products.py`.
 
+## Quote requests and handovers
+
+The agent never sends a formal quote. When a customer wants one, the agent records a **quote request** (product, quantity, delivery area) and tells them a colleague will send it. When only staff can answer, the agent records a **handover** and tells the customer a colleague will reply. This happens when a product has no price, the customer asks for a person, complains, or wants a large order. If a product has no price and the agent forgets to hand over, the system records the handover itself.
+
+Both actions only write to our database. They run on their own because `agent.approvals` in `config.yaml` sets them to `auto`. Remove those lines and the agent cannot use them.
+
+Staff alerts on WhatsApp and the web app screens come later. Until then, list what is open:
+
+```
+docker compose -f deploy/compose.yaml exec postgres psql -U yyai -d yyai -c \
+  "SELECT q.id, c.external_user_id, q.product_name, q.quantity, q.unit, q.area, q.created_at
+     FROM quote_requests q JOIN conversations c ON c.id = q.conversation_id WHERE q.status = 'open';"
+
+docker compose -f deploy/compose.yaml exec postgres psql -U yyai -d yyai -c \
+  "SELECT h.id, c.external_user_id, h.reason, h.summary, h.source, h.created_at
+     FROM handovers h JOIN conversations c ON c.id = h.conversation_id WHERE h.status = 'open';"
+```
+
 ## Changing settings
 
 `config.yaml` is read when the server and worker start, so after editing it run:

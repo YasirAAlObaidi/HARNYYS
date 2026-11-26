@@ -118,8 +118,18 @@ async def test_build_warns_when_stale_after_is_shorter_than_a_possible_turn(
 async def test_the_kahraman_config_builds_with_the_product_table(kahraman_dir: Path, demo_env: None) -> None:
     config = load_config(kahraman_dir / "config.yaml")
     assert config.inventory.brand == "sql_products"
+    assert config.agent.approvals == {"create_quote_request": "auto", "handover_to_staff": "auto"}
     workflows = build(config)
     await workflows.aclose()
+
+
+async def test_an_approval_rule_for_an_unknown_tool_stops_the_start(
+    kahraman_dir: Path, demo_env: None
+) -> None:
+    config = load_config(kahraman_dir / "config.yaml")
+    config.agent.approvals["create_quote_requests"] = "auto"  # a typo would otherwise silently do nothing
+    with pytest.raises(ConfigError, match="create_quote_requests"):
+        build(config)
 
 
 def test_the_kahraman_starter_sheet_has_no_problems(kahraman_dir: Path) -> None:

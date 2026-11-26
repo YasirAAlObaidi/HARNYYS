@@ -23,6 +23,7 @@ from yyai.handlers.persistence.catalogue import CatalogueStore
 from yyai.handlers.persistence.conversations import ConversationStore
 from yyai.handlers.persistence.db import Database
 from yyai.handlers.persistence.products import ProductStore
+from yyai.handlers.persistence.requests import RequestStore
 from yyai.handlers.ports import ChatModelPort, InventoryPort, MessagingPort
 from yyai.services.catalogue import CatalogueService
 from yyai.services.conversation import ConversationService
@@ -30,7 +31,9 @@ from yyai.services.messaging import MessagingService
 from yyai.services.model import ModelService
 from yyai.services.pricing import PricingService
 from yyai.services.products import ProductService
+from yyai.services.requests import RequestService
 from yyai.workflows.agent.registry import ToolRegistry
+from yyai.workflows.agent.request_tools import build_request_tools
 from yyai.workflows.agent.tools import build_product_tools
 from yyai.workflows.agent.turn import AgentTurnWorkflow
 from yyai.workflows.catalogue_sync import CatalogueSyncWorkflow
@@ -177,9 +180,12 @@ def build(config: Config) -> Workflows:
     )
     model = ModelService(config.models, providers)
 
-    registry = ToolRegistry()
-    for tool in build_product_tools(catalogue, pricing):
+    requests = RequestService(RequestStore(db))
+
+    registry = ToolRegistry(config.agent.approvals)
+    for tool in [*build_product_tools(catalogue, pricing), *build_request_tools(catalogue, requests)]:
         registry.register(tool)
+    registry.check_approvals()
 
     _warn_if_stale_window_too_short(config)
 
@@ -192,7 +198,9 @@ def build(config: Config) -> Workflows:
     )
     return Workflows(
         inbound=InboundWorkflow(messaging, conversations),
-        turns=AgentTurnWorkflow(conversations, model, registry, config.agent, config.client),
+        turns=AgentTurnWorkflow(
+            conversations, model, registry, config.agent, config.client, requests=requests
+        ),
         outbox=OutboxWorkflow(conversations, messaging, config.worker.outbox_max_attempts),
         catalogue_sync=CatalogueSyncWorkflow(catalogue),
         maintenance=MaintenanceWorkflow(conversations, config.worker.stale_after_s),

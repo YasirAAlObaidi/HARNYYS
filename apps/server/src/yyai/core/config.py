@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -73,6 +73,8 @@ class AgentConfig(BaseModel):
     history_messages: int = 20
     auto_send: bool = True
     fallback_reply: str | None = None
+    # Approval rule per tool name, overriding the default from its risk class (docs/decisions/0008).
+    approvals: dict[str, Literal["auto", "confirm"]] = {}
 
 
 class WorkerConfig(BaseModel):

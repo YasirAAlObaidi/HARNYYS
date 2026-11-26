@@ -12,10 +12,18 @@ from pathlib import Path
 import pytest
 
 from yyai.core.text import normalize_for_search
+from yyai.core.types import CatalogueItem
 from yyai.handlers.integrations.file_catalogue.handler import FileCatalogue
 from yyai.handlers.persistence.catalogue import CatalogueStore
 from yyai.handlers.persistence.db import Database
-from yyai.services.catalogue import CatalogueService, model_numbers, number_agreement
+from yyai.services.catalogue import (
+    CatalogueService,
+    code_agreement,
+    model_codes,
+    model_numbers,
+    number_agreement,
+    same_product,
+)
 from yyai.workflows.agent.tools import WEAK_MATCH_SCORE
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "model_numbers_catalogue.json"
@@ -134,3 +142,47 @@ async def test_scores_stay_sorted_after_reranking(gene_cafe: CatalogueService) -
     for query in ["CBR 300", "gene cafe 1200", "CBR 101"]:
         scores = [match.score for match in await gene_cafe.search(query, 9)]
         assert scores == sorted(scores, reverse=True)
+
+
+# --- short model codes ("F5", "F64", "V60") and colours ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "codes"),
+    [
+        ("مطاحن f5", {"f5"}),
+        ("f64 evo", {"f64"}),
+        ("hario v60 dripper", {"v60"}),
+        ("cbr101", {"cbr101"}),
+        ("hb-600 grams", set()),  # "600" is a model number, handled by model_numbers
+        ("ethiopia 1kg and 250g", set()),  # sizes are not codes
+        ("15bar pump 1350w", set()),
+    ],
+)
+def test_model_codes(text: str, codes: set[str]) -> None:
+    assert model_codes(text) == codes
+
+
+def test_an_item_without_the_customers_code_does_not_agree() -> None:
+    assert code_agreement({"f5"}, set()) is False  # "F5 grinder" never means a grinder cleaner
+    assert code_agreement({"f5"}, {"f5"}) is True
+    assert code_agreement(set(), {"f5"}) is None
+
+
+def test_same_product_ignores_colour_only() -> None:
+    def named(name: str) -> CatalogueItem:
+        return CatalogueItem(code=name, name_en=name)
+
+    assert same_product(
+        named("Fiorenzato F4 A Coffee Grinder (Black)"), named("Fiorenzato F4 A Coffee Grinder (Red)")
+    )
+    assert not same_product(
+        named("VBM Audrey Espresso Machine (Grey, 1 Group)"),
+        named("VBM Audrey Espresso Machine (Grey, 2 Groups)"),
+    )
+
+
+@pytest.mark.db
+async def test_a_code_written_joined_finds_the_product(gene_cafe: CatalogueService) -> None:
+    top_code, _ = await _top(gene_cafe, "CBR301")
+    assert "301" in top_code, top_code

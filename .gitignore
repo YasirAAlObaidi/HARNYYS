@@ -26,3 +26,8 @@ secrets*.yaml
 
 # Claude local settings
 .claude/settings.local.json
+
+# Client samples (real chats and voice notes): never commit
+samples/
+.claude/worktrees/
+Chat samples/
