@@ -91,7 +91,28 @@ Both branches start from `244d477`. Merge `kahraman-web-app` into `kahraman-phas
 
 ## 4. Staff web app (branch `kahraman-web-app`)
 
-Built by a second Claude agent (Opus) to Yazan's spec. Its backend is committed (`3d12d11`). The frontend was still in progress at handover: see the latest commit on the branch (a `WIP:` message lists what works).
+Built by a second Claude agent (Opus) to Yazan's spec: backend `3d12d11`, frontend `43d886a` (WIP).
+
+**Works at `43d886a`:**
+- **Login:** password plus TOTP, with throttling.
+- **Chats:** list, search and transcript, refreshed by polling.
+- **Assistant:** chat with the AI on the internal staff channel.
+- **Insights:**
+  - Three groups, with a period switch.
+  - "Updated 14:00 · next 15:00", and it refetches after the hour.
+  - "Not tracked yet" cards for metrics with no data source.
+- **Look and feel:**
+  - Kahraman colours: gold `#BB8F44` and white from the logo, green `#1E4A23` and charcoal `#12171B` from the site.
+  - Light and dark themes, checked for WCAG AA contrast.
+  - EN/AR with right-to-left layout, and a bundled IBM Plex Sans Arabic font.
+- **Checks:** web typecheck, lint, 98 vitest tests and `npm run build` pass. The server has 391 tests passing on that branch.
+
+**Not done at that commit:**
+- The web Dockerfile, the Caddyfile and the `caddy` service in `deploy/compose.yaml`.
+- The web app section in `deploy/README.md`, `apps/web/README.md`, and Node in `setup-mac.sh`.
+- No check yet in a real browser or against a running stack.
+
+The agent was still working at handover. Newer commits may be on the branch.
 
 **Spec from Yazan:**
 - **Login:** username, password and TOTP 2FA, with roles admin, sales and viewer (ADR 0014).
