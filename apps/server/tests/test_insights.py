@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -353,3 +355,42 @@ async def test_snapshots_are_saved_served_and_pruned(service: InsightService, db
     sql.execute("UPDATE insight_snapshots SET computed_at = computed_at - interval '40 days'")
     assert await InsightStore(db).prune_snapshots(NOW - timedelta(days=30)) == 2
     assert sql.execute("SELECT count(*) AS n FROM insight_snapshots").fetchone()["n"] == 1  # the newest stays
+
+
+# --- the web app's test fixture is a real snapshot ---------------------------------------------------------------
+
+WEB_FIXTURE = Path(__file__).resolve().parents[2] / "web" / "src" / "test" / "insights-snapshot.json"
+
+
+def fixture_snapshot() -> dict[str, Any]:
+    messages = [
+        msg(1, dubai(26, 9), "كم سعر قهوة كولومبيا 1 كجم؟"),
+        msg(1, dubai(26, 9, 5), "متوفر؟"),
+        msg(2, dubai(25, 20), "Do you have the Fiorenzato grinder in stock?"),
+        msg(2, dubai(25, 20, 2), "[audio]", ("audio",)),
+        msg(3, dubai(22, 11), "How much is the Chemex?"),
+        msg(4, dubai(26, 7), "السلام عليكم"),
+    ]
+    contacts = [
+        ContactRow(1, dubai(26, 9)),
+        ContactRow(2, dubai(2, 10, month=10)),
+        ContactRow(3, dubai(22, 11)),
+        ContactRow(4, dubai(26, 7)),
+    ]
+    calls = [
+        call(1, "quote_price", {"query": "كولومبيا 1 كجم"}, quote("COL-1KG", 0.92, "Colombia Supremo 1 kg")),
+        call(2, "quote_price", {"query": "fiorenzato grinder"}, quote("FIO-F64", 0.81, "Fiorenzato F64 EVO")),
+        call(3, "quote_price", {"query": "chemex"}, {"found": False}),
+        call(3, "search_products", {"query": "chemex"}, []),
+    ]
+    data = compute_snapshot(NOW, DUBAI, messages, contacts, calls, working_hours=HOURS, weak_match_score=WEAK)
+    return {**data, "id": 1}  # the API adds the snapshot id when it serves it (workflows/insights.py)
+
+
+def test_the_web_apps_fixture_is_what_the_server_sends() -> None:
+    """apps/web tests render this file. If the snapshot format changes, regenerate it with:
+    YYAI_WRITE_WEB_FIXTURE=1 uv run pytest tests/test_insights.py -k fixture"""
+    expected = fixture_snapshot()
+    if os.environ.get("YYAI_WRITE_WEB_FIXTURE"):
+        WEB_FIXTURE.write_text(json.dumps(expected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    assert json.loads(WEB_FIXTURE.read_text(encoding="utf-8")) == expected

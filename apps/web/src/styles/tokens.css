@@ -1,0 +1,143 @@
+/*
+ * Design tokens. Brand colours come from Kahraman's logo (kahramandubai.com header, KD-White.svg):
+ *   gold  #BB8F44  the logo mark            white #FFFFFF  the wordmark
+ * and from the same site's theme:
+ *   green #1E4A23  the dark band the white logo sits on      charcoal #12171B
+ *
+ * Gold on white is only 2.95:1, so on light surfaces gold is decoration only (lines, marks, the active tab);
+ * gold text uses the darker --accent-text. tokens.test.ts checks every text and UI pair below against WCAG AA.
+ *
+ * The theme follows the system unless the user picks one: then <html data-theme="light|dark"> is set.
+ */
+
+:root {
+  color-scheme: light;
+
+  --brand-gold: #bb8f44;
+  --brand-green: #1e4a23;
+  --brand-charcoal: #12171b;
+  --brand-white: #ffffff;
+
+  --bg: #f8f6f1;
+  --surface: #ffffff;
+  --surface-2: #f1ede4;
+  --border: #e2dbcd;
+  --border-strong: #80786a;
+  --text: #12171b;
+  --text-muted: #5b6064;
+
+  --primary: #1e4a23;
+  --primary-hover: #163a1b;
+  --on-primary: #ffffff;
+  --accent: #bb8f44;
+  --accent-text: #7a5719;
+  --focus: #a57a30;
+
+  --header-bg: #1e4a23;
+  --header-text: #ffffff;
+  --header-muted: #d7e3d8;
+
+  --bubble-customer: #ffffff;
+  --bubble-ai: #f4ead7;
+  --bubble-staff: #e3eee4;
+  --bubble-text: #12171b;
+
+  --danger: #b3261e;
+  --danger-bg: #fbe9e7;
+  --success: #2e6b34;
+  --warning-bg: #fbf1dc;
+
+  --chart-1: #a57a30;
+  --chart-2: #1e4a23;
+  --chart-3: #80786a;
+  --heat-0: #f1ede4;
+  --heat-1: #7a5719;
+
+  --shadow: 0 1px 2px rgb(18 23 27 / 6%), 0 4px 12px rgb(18 23 27 / 6%);
+  --radius: 10px;
+  --radius-small: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg: #12171b;
+    --surface: #1a2126;
+    --surface-2: #222b31;
+    --border: #2e3840;
+    --border-strong: #6b7a86;
+    --text: #f3efe8;
+    --text-muted: #a9b1b8;
+
+    --primary: #bb8f44;
+    --primary-hover: #cda35a;
+    --on-primary: #12171b;
+    --accent: #bb8f44;
+    --accent-text: #d9b574;
+    --focus: #d9b574;
+
+    --header-bg: #173b1c;
+    --header-text: #ffffff;
+    --header-muted: #d7e3d8;
+
+    --bubble-customer: #1f272d;
+    --bubble-ai: #3a2f1c;
+    --bubble-staff: #1f3524;
+    --bubble-text: #f3efe8;
+
+    --danger: #f2b8b5;
+    --danger-bg: #3a2120;
+    --success: #8fd19a;
+    --warning-bg: #3a2f1c;
+
+    --chart-1: #d0a55a;
+    --chart-2: #6faf78;
+    --chart-3: #8c99a4;
+    --heat-0: #222b31;
+    --heat-1: #d9b574;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 25%);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #12171b;
+  --surface: #1a2126;
+  --surface-2: #222b31;
+  --border: #2e3840;
+  --border-strong: #6b7a86;
+  --text: #f3efe8;
+  --text-muted: #a9b1b8;
+
+  --primary: #bb8f44;
+  --primary-hover: #cda35a;
+  --on-primary: #12171b;
+  --accent: #bb8f44;
+  --accent-text: #d9b574;
+  --focus: #d9b574;
+
+  --header-bg: #173b1c;
+  --header-text: #ffffff;
+  --header-muted: #d7e3d8;
+
+  --bubble-customer: #1f272d;
+  --bubble-ai: #3a2f1c;
+  --bubble-staff: #1f3524;
+  --bubble-text: #f3efe8;
+
+  --danger: #f2b8b5;
+  --danger-bg: #3a2120;
+  --success: #8fd19a;
+  --warning-bg: #3a2f1c;
+
+  --chart-1: #d0a55a;
+  --chart-2: #6faf78;
+  --chart-3: #8c99a4;
+  --heat-0: #222b31;
+  --heat-1: #d9b574;
+
+  --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 25%);
+}
