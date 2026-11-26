@@ -7,14 +7,18 @@ upward.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # --- Messaging -------------------------------------------------------------
+
+STAFF_CHANNEL = "staff"
+"""The built-in channel of the staff Assistant page. Every conversation on it is internal (see `internal`)."""
 
 
 class MediaRef(BaseModel):
@@ -32,6 +36,10 @@ class InboundMessage(BaseModel):
     text: str
     received_at: datetime
     media: list[MediaRef] = []
+    internal: bool = Field(
+        False,
+        description="True for staff chats: kept off the Chats page and out of Insights, and never a real lead",
+    )
 
 
 class SendResult(BaseModel):
@@ -162,6 +170,9 @@ class StoredMessage(BaseModel):
     created_at: datetime
 
 
+Author = Literal["customer", "ai", "staff"]
+
+
 class ConversationSummary(BaseModel):
     id: int
     channel: str
@@ -169,6 +180,24 @@ class ConversationSummary(BaseModel):
     customer_name: str | None
     last_inbound_at: datetime | None
     created_at: datetime
+    internal: bool = False
+    # The newest message, for the chat list. None when the conversation has no messages yet.
+    last_message_at: datetime | None = None
+    last_message_text: str | None = None
+    last_message_author: Author | None = None
+    message_count: int = 0
+
+
+class TranscriptMessage(BaseModel):
+    """One message as staff see it in a chat. `author` tells customer, AI and staff messages apart."""
+
+    id: int
+    direction: Direction
+    author: Author
+    text: str
+    media: list[str] = Field([], description="Media kinds sent with the message, e.g. ['audio'] for a voice note")
+    created_at: datetime
+    delivery: str | None = Field(None, description="Outbox status of a reply: pending, sending, sent, failed ...")
 
 
 class TurnRecord(BaseModel):
@@ -180,6 +209,7 @@ class TurnRecord(BaseModel):
     external_user_id: str
     customer_name: str | None
     attempts: int
+    internal: bool = False
 
 
 class OutboxRecord(BaseModel):
@@ -204,3 +234,103 @@ class RunContext(BaseModel):
     client_name: str
     currency: str
     auto_send: bool
+    # True for staff chats (the Assistant page). A tool that records something real, such as a quote request,
+    # must check this and do nothing real when it is set.
+    internal: bool = False
+
+    @model_validator(mode="after")
+    def _staff_chats_are_internal(self) -> RunContext:
+        if self.channel == STAFF_CHANNEL:
+            self.internal = True
+        return self
+
+
+# --- Staff users and sessions ---------------------------------------------------
+
+
+class StaffRole(StrEnum):
+    ADMIN = "admin"
+    SALES = "sales"
+    VIEWER = "viewer"
+
+
+class StaffUser(BaseModel):
+    """A member of staff who can log in to the web app. Never carries the password hash or the 2FA secret."""
+
+    id: int
+    username: str
+    display_name: str | None = None
+    role: StaffRole
+    active: bool = True
+    created_at: datetime
+    last_login_at: datetime | None = None
+
+
+class StaffCredentials(BaseModel):
+    """What the login check needs. Stays inside the staff service and its store."""
+
+    user: StaffUser
+    password_hash: str
+    totp_secret: str
+    totp_last_step: int | None = None
+
+
+class StaffSession(BaseModel):
+    user: StaffUser
+    created_at: datetime
+    last_seen_at: datetime
+    expires_at: datetime
+
+
+class LoginOutcome(BaseModel):
+    """The result of one login attempt. `token` is set only on success and goes into the session cookie."""
+
+    ok: bool
+    user: StaffUser | None = None
+    token: str | None = None
+    expires_at: datetime | None = None
+    retry_after_s: int | None = Field(None, description="Set when login is throttled: seconds until it may be tried")
+
+
+class NewStaffUser(BaseModel):
+    """A user just created or reset: the 2FA secret is shown once, to enrol an authenticator app."""
+
+    user: StaffUser
+    totp_secret: str
+    totp_uri: str
+
+
+# --- Insights ------------------------------------------------------------------
+
+
+class InsightSnapshot(BaseModel):
+    id: int
+    computed_at: datetime
+    data: dict[str, Any]
+
+
+# The raw rows an insight snapshot is computed from. Plain dataclasses, not pydantic models, because a month
+# of messages can be tens of thousands of rows. All of them come from customer chats only, never internal ones.
+
+
+@dataclass(frozen=True, slots=True)
+class CustomerMessageRow:
+    conversation_id: int
+    created_at: datetime
+    text: str
+    media: tuple[str, ...] = ()  # media kinds, e.g. ("audio",) for a voice note
+
+
+@dataclass(frozen=True, slots=True)
+class ContactRow:
+    conversation_id: int
+    first_at: datetime  # when this customer first wrote, ever
+
+
+@dataclass(frozen=True, slots=True)
+class ToolCallRow:
+    conversation_id: int
+    name: str
+    args: dict[str, Any]
+    result: str  # the tool's JSON answer as the audit log keeps it (cut at 2000 characters)
+    created_at: datetime

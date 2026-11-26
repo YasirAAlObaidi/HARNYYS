@@ -7,12 +7,15 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from yyai.workflows.agent.turn import AgentTurnWorkflow
+from yyai.workflows.assistant import AssistantWorkflow
 from yyai.workflows.catalogue_sync import CatalogueSyncWorkflow
 from yyai.workflows.inbound import InboundWorkflow
+from yyai.workflows.insights import InsightsWorkflow
 from yyai.workflows.maintenance import MaintenanceWorkflow
 from yyai.workflows.outbox import OutboxWorkflow
 from yyai.workflows.products import ProductSheetWorkflow
 from yyai.workflows.queries import ConversationQueries
+from yyai.workflows.staff import StaffWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,9 @@ class Workflows:
     maintenance: MaintenanceWorkflow
     queries: ConversationQueries
     products: ProductSheetWorkflow
+    staff: StaffWorkflow
+    assistant: AssistantWorkflow
+    insights: InsightsWorkflow
     # Called by aclose(), last registered first, so the database closes after the things that use it.
     closers: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
 

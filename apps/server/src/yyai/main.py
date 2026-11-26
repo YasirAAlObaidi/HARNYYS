@@ -27,7 +27,8 @@ def create() -> FastAPI:
         from yyai.entry.api.app import create_app
 
         configure_logging()
-        _app = create_app(build(load_config()))
+        config = load_config()
+        _app = create_app(build(config), session_max_age_s=int(config.auth.session_hours * 3600))
     return _app
 
 

@@ -21,12 +21,17 @@ class Counter:
         return self._result
 
 
-def fake_workflows() -> SimpleNamespace:
+def fake_workflows(seconds_to_the_hour: float = 3600.0) -> SimpleNamespace:
     return SimpleNamespace(
         turns=SimpleNamespace(run_once=Counter(False)),
         outbox=SimpleNamespace(deliver_once=Counter(False)),
         catalogue_sync=SimpleNamespace(run=Counter(0)),
         maintenance=SimpleNamespace(recover=Counter(0)),
+        insights=SimpleNamespace(
+            refresh_if_stale=Counter(False),
+            refresh=Counter(None),
+            seconds_until_next_refresh=lambda: seconds_to_the_hour,
+        ),
     )
 
 
@@ -83,3 +88,35 @@ async def test_a_failing_loop_does_not_stop_the_others(monkeypatch: pytest.Monke
 
     assert workflows.outbox.deliver_once.calls >= 3
     assert workflows.catalogue_sync.run.calls == 1
+
+
+async def test_insights_are_checked_at_startup_then_refreshed_every_hour() -> None:
+    workflows = fake_workflows(seconds_to_the_hour=0.05)  # pretend an hour is 50 ms
+
+    await run_for(workflows, WorkerConfig(poll_interval_s=0.01), 0.3)
+
+    assert workflows.insights.refresh_if_stale.calls == 1
+    assert workflows.insights.refresh.calls >= 3
+
+
+async def test_a_failed_insights_refresh_is_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(runner, "INSIGHTS_RETRY_S", 0.02)
+    workflows = fake_workflows(seconds_to_the_hour=3600)
+    attempts = Counter(None)
+
+    async def flaky() -> None:
+        await attempts()
+        if attempts.calls < 3:
+            raise RuntimeError("database down")
+
+    async def stale_and_failing() -> bool:
+        await flaky()
+        return True
+
+    workflows.insights.refresh_if_stale = stale_and_failing
+    workflows.insights.seconds_until_next_refresh = lambda: 0.01
+    workflows.insights.refresh = flaky
+
+    await run_for(workflows, WorkerConfig(poll_interval_s=0.01), 0.3)
+
+    assert attempts.calls >= 3  # the startup failure did not stop the loop, and failures were retried

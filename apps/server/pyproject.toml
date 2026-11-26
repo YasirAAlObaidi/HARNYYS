@@ -15,6 +15,9 @@ dependencies = [
     "tzdata>=2024.1",  # zoneinfo has no timezone database on slim images without it
     "openpyxl>=3.1",
     "defusedxml>=0.7",
+    "argon2-cffi>=25.1",
+    "pyotp>=2.9",
+    "segno>=1.6",
 ]
 
 [project.scripts]
@@ -88,10 +91,12 @@ type = "independence"
 modules = [
     "yyai.services.catalogue",
     "yyai.services.conversation",
+    "yyai.services.insights",
     "yyai.services.messaging",
     "yyai.services.model",
     "yyai.services.pricing",
     "yyai.services.products",
+    "yyai.services.staff",
 ]
 
 [[tool.importlinter.contracts]]
