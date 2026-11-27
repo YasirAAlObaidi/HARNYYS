@@ -182,7 +182,7 @@ From Yazan's samples (chat screenshots, voice notes, text questions), kept local
 
 ## 7. Known issues
 
-- **Docker image rebuild fails on this Mac** with `dns error` during `uv sync` in the build, even though containers resolve names fine. The running stack still has the image from before the second commit. The code itself passes all tests. Probably fixed by restarting Colima, or with `colima start --dns ...`.
+- **Fixed on 27 Nov: the Docker image rebuild** failed on the Mac with `dns error` during `uv sync`. `colima restart` fixed it. The stack was rebuilt and checked: migration `0004` applied, the worker loads all six tools, and `/api/health` is OK. If it comes back, restart Colima again.
 - **Six files were already unformatted** before this work and are left as they were (`ruff format --check`): `handlers/common/http.py`, `handlers/integrations/whatsapp_cloud/handler.py`, `handlers/model/openai_compat.py`, `handlers/persistence/catalogue.py`, `handlers/persistence/conversations.py`, `services/model.py`.
 - **No staff alert yet** for new quote requests and handovers. Staff see them only in the database for now, and in the web app after the merge.
 
@@ -192,6 +192,17 @@ From Yazan's samples (chat screenshots, voice notes, text questions), kept local
    - Shortlist 2–3 instruct models that fit in about 10 GB of graphics memory at Q4/Q5.
    - Test tool-calling in Gulf Arabic on the real text samples Yazan has locally: short price and spec questions in English and Arabic, about an HB 600 g roaster, Nicaragua by screen size, and LeBrew.
    - Yazan decides. Then make local the default in `config.yaml`: `external: false`, `allow_external: false`.
+   - **Shortlist (27 Nov, research only).** The budget is about 12 GB of graphics memory for the chat model, leaving room for Whisper.
+     - Gemma 4 12B: Google, Apache 2.0, native tool calling, about 6.7 GB at Q4.
+     - Ministral 3 14B Instruct: Mistral, Apache 2.0, native tool calling, Arabic listed, about 8–9 GB at Q4.
+     - One Arabic-native model:
+       - Jais-2-8B-Chat (UAE): best Arabic score at 13B and under, Gulf dialect and code-switching. Tool calling is not documented, and the download is gated.
+       - Falcon-H1-Arabic-7B (TII): 256K context, Falcon licence. Tool calling is unverified.
+     - Ruled out:
+       - ALLaM-7B and Fanar-9B: 4K context, too short for the prompt, the tools and the chat history.
+       - Qwen3.8 27B and Gemma 4 26B/31B: about 14–17 GB at Q4.
+       - Qwen3.8 Flash Next: too big.
+     - The real test: run the actual agent (prompt and tools) against each model through llama-server or Ollama on the Mac, using Yazan's real questions. Score tool-call reliability, Gulf Arabic replies, and never inventing a price.
 2. **WhatsApp test number and tunnel (step 7):** `docs/setup/whatsapp.html` and `deploy/README.md`.
 3. **Merge the web app branch** (section 1) and fix the Docker build.
 4. **From Kahraman:**
