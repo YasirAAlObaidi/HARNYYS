@@ -243,6 +243,7 @@ class PresentedProduct(BaseModel):
 
     key: str = Field(description="Base product key; a later, more specific entry replaces an earlier one")
     name: str
+    name_ar: str | None = None
     price: Decimal | None = None
     price_from: bool = False
     currency: str = "AED"

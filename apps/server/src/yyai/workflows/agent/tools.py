@@ -21,6 +21,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from yyai.core.errors import IntegrationError
+from yyai.core.text import normalize_for_search
 from yyai.core.types import CatalogueItem, ItemPrice, PresentedProduct, ProductGroup, RunContext, StockLevel
 from yyai.core.variants import chosen_variants, variant_label
 from yyai.services.catalogue import CatalogueService, same_product
@@ -140,7 +141,16 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
                 "handover": False,
                 "note": UNCLEAR_NOTE,
             }
-        rivals = [g for g in groups[1:] if g.score >= max(score - TIE_MARGIN, WEAK_MATCH_SCORE)][:2]
+        tied = [g for g in groups if g.score >= max(score - TIE_MARGIN, WEAK_MATCH_SCORE)]
+        # "Fiorenzato F5" means the F5, not the F5 Drog: when one tied product's name is the other's name plus
+        # extra words, the plain product leads and its extended versions are not rivals. A customer who wants
+        # the extended one says its extra word, and that word then raises its score on its own.
+        plain = next((g for g in tied if not any(_extends(g, o) for o in tied if o is not g)), group)
+        if plain is not group:
+            group, score = plain, plain.score
+            groups = [group] + [g for g in groups if g is not group]
+            others = [_short(g) for g in groups[1:3]]
+        rivals = [g for g in tied if g is not group and not _extends(g, group)][:2]
         if rivals:
             options = []
             for rival in [group, *rivals]:
@@ -276,6 +286,15 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
     ]
 
 
+def _words(name: str) -> set[str]:
+    return set(re.findall(r"[^\W_]+", normalize_for_search(re.sub(r"\([^()]*\)", " ", name))))
+
+
+def _extends(longer: ProductGroup, shorter: ProductGroup) -> bool:
+    """Whether the first product's name is the second's name plus more words."""
+    return _words(shorter.name_en) < _words(longer.name_en)
+
+
 def _code(group: ProductGroup) -> str:
     return group.items[0].code if not group.has_variants else group.base_key
 
@@ -377,6 +396,7 @@ def _present(ctx: RunContext, group: ProductGroup, priced: list[_Priced], *, spe
     entry = PresentedProduct(
         key=group.base_key,
         name=name,
+        name_ar=group.name_ar,
         price=min(prices) if prices else None,
         price_from=len(set(prices)) > 1,
         currency=priced[0].currency,

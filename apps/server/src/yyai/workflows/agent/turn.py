@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, get_args
@@ -16,7 +17,15 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from yyai.core.config import AgentConfig, ClientConfig
 from yyai.core.errors import IntegrationError
-from yyai.core.types import ChatMessage, Direction, HandoverReason, PresentedProduct, RunContext, TurnRecord
+from yyai.core.types import (
+    ChatMessage,
+    Direction,
+    HandoverReason,
+    PresentedProduct,
+    RunContext,
+    StoredMessage,
+    TurnRecord,
+)
 from yyai.services.conversation import ConversationService
 from yyai.services.model import ModelService
 from yyai.services.requests import RequestService
@@ -41,6 +50,25 @@ class _Progress:
     # Set when quote_price said only staff can answer (a product with no price), and when the model handed over.
     handover_needed: HandoverReason | None = None
     handed_over: bool = False
+
+
+def language_hint(history: list[StoredMessage]) -> str:
+    """A line for the system prompt naming the script of the customer's latest message.
+
+    The model drifts into Arabic after reading Arabic product names in tool results, even when the customer
+    wrote English. Counting letters is crude but certain: mixed or letterless messages (an emoji) get no hint."""
+    latest = next((m.text for m in reversed(history) if m.direction == Direction.INBOUND), "")
+    arabic = len(re.findall(r"[\u0600-\u06FF]", latest))
+    latin = len(re.findall(r"[A-Za-z]", latest))
+    if latin >= 3 and arabic == 0:
+        return (
+            "\n\nThe customer's latest message is in Latin letters. Reply in that same language (English unless "
+            "they plainly wrote another one), even when product names or notes from tools are in Arabic. "
+            "Use name_en."
+        )
+    if arabic >= 3 and arabic > latin:
+        return "\n\nThe customer's latest message is in Arabic. Reply in Arabic."
+    return ""
 
 
 class _KeepUnknown(dict):
@@ -85,7 +113,7 @@ class AgentTurnWorkflow:
                 reply,
                 auto_send=self._agent.auto_send,
                 steps=progress.steps,
-                images=pick_images(progress.presented, self._agent.max_images),
+                images=pick_images(progress.presented, self._agent.max_images, reply),
             )
         except Exception as exc:
             logger.exception("Turn %s failed", turn.id)
@@ -108,7 +136,7 @@ class AgentTurnWorkflow:
         )
         progress.presented = ctx.presented  # the tools append to this list; our code reads it after the reply
         history = await self._conversations.history(turn.conversation_id, self._agent.history_messages)
-        messages = [ChatMessage(role="system", content=self._system_prompt())]
+        messages = [ChatMessage(role="system", content=self._system_prompt() + language_hint(history))]
         messages.extend(
             ChatMessage(
                 role="user" if stored.direction == Direction.INBOUND else "assistant", content=stored.text

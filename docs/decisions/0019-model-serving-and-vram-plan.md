@@ -76,6 +76,16 @@ Whisper large-v3 with a product-name hint, as chosen from the voice-note test. W
 
 Use a quantised cache (fp8) to halve the cache size. Whether the quantised cache hurts quality for this model is not verified.
 
+## Results so far: OpenRouter, not our build
+
+On 2026-11-29 we ran 36 scripted customer scenarios through the real WhatsApp path against Inkling 2 Mini hosted on OpenRouter. The host's precision and settings are not known to us, so it is almost certainly not our Q3 build. These results show what the agent prompt and tools can do with the model. They say nothing about our quantised local build, which must be tested separately (test plan, steps 4, 5 and 8).
+
+What we learned that carries over to any host:
+
+- It is a reasoning model. Its thinking counts toward `max_tokens`, and at 800 the thinking alone used the whole budget on some turns, so no answer came back. The client config now sets 3000 and `reasoning: {effort: low}`. A local server may ignore the `reasoning` setting, so thinking length and the token cap must be checked there.
+- The model returns nothing on rare turns, so the model service asks once more before failing.
+- Tool calling worked on OpenRouter: it chose the right tool in most scenarios and never stated a price a tool did not return.
+
 ## Test plan for when the card arrives
 
 1. Does the Q3 build load, and does `llama-server` run it on Blackwell with the CUDA version we use?

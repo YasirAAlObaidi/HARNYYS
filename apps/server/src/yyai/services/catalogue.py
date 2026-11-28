@@ -60,14 +60,16 @@ class CatalogueService:
             # Replacing the copy with nothing would silently take the agent's catalogue away.
             logger.warning("Inventory returned no items; keeping the existing catalogue copy")
             return 0
-        pairs = [(item, _search_text(item)) for item in items]
+        pairs = [(item, _search_text(item)) for item in with_derived_variants(items)]
         return await self._store.replace_all(pairs)
 
     async def search(self, query: str, limit: int) -> list[CatalogueMatch]:
         return (await self._ranked(query, limit))[:limit]
 
     async def _ranked(self, query: str, limit: int) -> list[CatalogueMatch]:
-        normalized = normalize_for_search(query)
+        # A colour is an option of a product, not part of its name: "F5 black" is looked up as "F5", and the
+        # colour then picks the variant (core.variants.chosen_variants uses the customer's own words).
+        normalized = strip_colours(normalize_for_search(query))
         if not normalized:
             return []
         candidates = await self._store.search(normalized, max(limit * CANDIDATES_PER_RESULT, MIN_CANDIDATES))
@@ -126,6 +128,17 @@ class CatalogueService:
         return await self._store.categories()
 
 
+def strip_colours(normalized_query: str) -> str:
+    """The query without colour words, Arabic ones with the "ال" prefix too. Unchanged if only colours are left."""
+    words = _TOKEN.findall(normalized_query)
+
+    def is_colour(word: str) -> bool:
+        return word in _COLOURS or (word.startswith("ال") and word[2:] in _COLOURS)
+
+    kept = [word for word in words if not is_colour(word)]
+    return " ".join(kept) if kept else normalized_query
+
+
 def model_numbers(normalized_text: str) -> set[str]:
     """The whole numbers in a text that are long enough to name a model or a pack size.
 
@@ -164,6 +177,35 @@ def code_agreement(wanted: set[str], offered: set[str]) -> bool | None:
     if not wanted:
         return None
     return bool(wanted & offered)
+
+
+_TRAILING_COLOUR = re.compile(r"\(([^()]*)\)\s*$")
+
+
+def with_derived_variants(items: list[CatalogueItem]) -> list[CatalogueItem]:
+    """Group colour variants of one product when the inventory gave no base code.
+
+    "F5 Grinder (Black)", "F5 Grinder (Red)" and "F5 Grinder (White)" become one product with three options.
+    Only a trailing bracket that holds a colour word counts, and only when at least two items share the name
+    without it, so "Audrey (Grey, 1 Group)" and "Audrey (Grey, 2 Groups)" stay apart. Items that already name
+    a base product are left alone. This changes our copy only, never the product table.
+    """
+    keyed: dict[str, list[int]] = {}
+    for index, item in enumerate(items):
+        if item.attributes.get("base_code") or item.attributes.get("variant_of"):
+            continue
+        match = _TRAILING_COLOUR.search(item.name_en)
+        if match and any(word in _COLOURS for word in _TOKEN.findall(normalize_for_search(match.group(1)))):
+            keyed.setdefault(_without_colour(item.name_en), []).append(index)
+    result = list(items)
+    for key, indexes in keyed.items():
+        if len(indexes) < 2:
+            continue
+        base = "-".join(_TOKEN.findall(normalize_for_search(_TRAILING_COLOUR.sub("", items[indexes[0]].name_en)))) or key
+        for index in indexes:
+            item = items[index]
+            result[index] = item.model_copy(update={"attributes": {**item.attributes, "base_code": base}})
+    return result
 
 
 def same_product(a: CatalogueItem, b: CatalogueItem) -> bool:

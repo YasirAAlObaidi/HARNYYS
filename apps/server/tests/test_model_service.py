@@ -203,10 +203,18 @@ async def test_nothing_left_after_the_retry_is_an_integration_error() -> None:
     assert len(provider.requests) == 2
 
 
-async def test_a_reply_with_no_text_and_no_tool_calls_is_an_integration_error() -> None:
-    provider = ScriptedModel(ModelReply())
+async def test_a_reply_with_no_text_and_no_tool_calls_is_asked_for_again_once() -> None:
+    provider = ScriptedModel(ModelReply(), ModelReply(text="Here you go"))
+    reply = await service(provider).chat(ROLE, USER, TOOLS, validate=validator)
+    assert reply.text == "Here you go"
+    assert len(provider.requests) == 2
+
+
+async def test_two_empty_replies_in_a_row_are_an_integration_error() -> None:
+    provider = ScriptedModel(ModelReply(), ModelReply())
     with pytest.raises(IntegrationError):
         await service(provider).chat(ROLE, USER, TOOLS, validate=validator)
+    assert len(provider.requests) == 2
 
 
 async def test_provider_errors_propagate() -> None:

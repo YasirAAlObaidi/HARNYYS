@@ -206,3 +206,51 @@ async def test_send_image_falls_back_to_the_link_without_a_local_file(wa_local: 
         send = router.post(MESSAGES_URL).mock(return_value=httpx.Response(200, json={"messages": [{"id": "w"}]}))
         await wa_local.send_image("1", "https://img.test/other.jpg", "")
     assert json.loads(send.calls[0].request.content)["image"] == {"link": "https://img.test/other.jpg"}
+
+
+def test_search_only_products_need_to_be_named_in_the_reply() -> None:
+    greeting = [
+        PresentedProduct(key="a", name="Fiorenzato F5 Coffee Grinder", image_url="https://img.test/a.jpg"),
+        PresentedProduct(key="b", name="Brazil Lot 200", image_url="https://img.test/b.jpg"),
+    ]
+    assert pick_images(greeting, 3, "Hi there! How can I help you today?") == []
+    named = pick_images(greeting, 3, "We have the Fiorenzato F5 and Brazil Lot 200.")
+    assert [i.url for i in named] == ["https://img.test/a.jpg", "https://img.test/b.jpg"]
+    only_f4 = [PresentedProduct(key="c", name="Fiorenzato F4 A Coffee Grinder", image_url="https://img.test/c.jpg")]
+    assert pick_images(only_f4, 3, "The Fiorenzato F5 is great") == []  # model numbers must match
+    asked = [PresentedProduct(key="d", name="Brazil Lot 200", image_url="https://img.test/d.jpg", specific=True)]
+    assert len(pick_images(asked, 3, "Which colour do you want?")) == 1  # the customer named it
+    arabic = [
+        PresentedProduct(key="e", name="Brazil Lot 200", name_ar="قهوة خضراء برازيلية – لوت 200", image_url="https://img.test/e.jpg")
+    ]
+    assert len(pick_images(arabic, 3, "عندنا برازيلية لوت 200 متوفرة")) == 1
+
+
+def test_colour_variants_are_grouped_from_names_when_the_inventory_gives_no_base_code() -> None:
+    from yyai.services.catalogue import with_derived_variants
+
+    def make(code: str, name: str) -> CatalogueItem:
+        return CatalogueItem(code=code, name_en=name, category="Grinders")
+
+    items = [
+        make("f5-b", "Fiorenzato F5 Coffee Grinder (Black)"),
+        make("f5-r", "Fiorenzato F5 Coffee Grinder (Red)"),
+        make("drog-b", "Fiorenzato F5 Drog Coffee Grinder (Black)"),
+        make("aud-1", "Audrey (Grey, 1 Group)"),
+        make("aud-2", "Audrey (Grey, 2 Groups)"),
+        make("solo", "Solo Grinder (Black)"),
+    ]
+    grouped = {i.code: i.attributes.get("base_code") for i in with_derived_variants(items)}
+    assert grouped["f5-b"] == grouped["f5-r"] == "fiorenzato-f5-coffee-grinder"
+    assert grouped["drog-b"] is None  # a different product that happens to come in black
+    assert grouped["aud-1"] is None and grouped["aud-2"] is None
+    assert grouped["solo"] is None  # one colour is not a variant group
+
+
+def test_colour_words_are_left_out_of_the_product_lookup() -> None:
+    from yyai.core.text import normalize_for_search
+    from yyai.services.catalogue import strip_colours
+
+    assert strip_colours(normalize_for_search("Fiorenzato F5 black")) == "fiorenzato f5"
+    assert strip_colours(normalize_for_search("مطحنة F5 الأسود")) == normalize_for_search("مطحنة F5")
+    assert strip_colours(normalize_for_search("black")) == "black"  # only a colour: keep it

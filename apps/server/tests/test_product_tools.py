@@ -302,3 +302,17 @@ async def test_a_weak_second_match_does_not_make_a_clear_one_ambiguous() -> None
     result = await call(tools(FakeCatalogue(matches), pricing)["quote_price"], query="ethiopia")
 
     assert (result["clear_match"], result["price"]) == (True, 139.5)
+
+
+async def test_the_plain_product_leads_when_a_longer_named_one_ties_with_it() -> None:
+    from yyai.core.types import CatalogueItem
+
+    def named(code: str, name: str) -> CatalogueItem:
+        return CatalogueItem(code=code, name_en=name, category="Grinders")
+
+    plain = named("F5", "Fiorenzato F5 Coffee Grinder")
+    drog = named("F5D", "Fiorenzato F5 Drog Coffee Grinder")
+    pricing = FakePricing({"F5": Decimal(1600), "F5D": Decimal(1200)}, {"F5": True, "F5D": True})
+    catalogue = FakeCatalogue([CatalogueMatch(item=drog, score=0.95), CatalogueMatch(item=plain, score=0.95)])
+    result = await call(tools(catalogue, pricing)["quote_price"], query="fiorenzato f5")
+    assert (result["code"], result["price"], result["handover"]) == ("F5", 1600, False)

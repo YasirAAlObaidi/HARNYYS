@@ -58,6 +58,7 @@ class ModelService:
             )
 
         reply = await call(messages)
+        used_retry = False
         if validate is not None and reply.tool_calls:
             errors = _validation_errors(reply.tool_calls, validate)
             if errors:
@@ -80,6 +81,20 @@ class ModelService:
                 ]
                 retried = await call(retry_messages)
                 reply = retried.model_copy(update={"usage": _sum_usage(reply.usage, retried.usage)})
+                reply = _drop_invalid(reply, validate)
+                used_retry = True
+        if not reply.tool_calls and not reply.text and not used_retry:
+            # A reasoning model sometimes spends its whole budget thinking and returns nothing. Ask once more:
+            # in practice the second answer is fine, and the customer would otherwise get the fallback apology.
+            logger.warning(
+                "Model on role %s returned neither text nor a tool call (finish_reason=%s, usage=%s); retrying once",
+                role,
+                reply.finish_reason,
+                {k: v for k, v in reply.usage.items() if k in ("completion_tokens", "completion_tokens_details")},
+            )
+            retried = await call(messages)
+            reply = retried.model_copy(update={"usage": _sum_usage(reply.usage, retried.usage)})
+            if validate is not None and reply.tool_calls:
                 reply = _drop_invalid(reply, validate)
         if not reply.tool_calls and not reply.text:
             raise IntegrationError("model produced no valid answer")

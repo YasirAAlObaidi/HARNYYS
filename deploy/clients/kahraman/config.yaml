@@ -39,7 +39,12 @@ models:
     timeout_s: 90
     params:
       temperature: 0.3
-      max_tokens: 800
+      # Inkling 2 Mini is a reasoning model: its thinking counts toward max_tokens. At 800 the thinking alone
+      # used the whole budget on some turns and no answer came back (finish_reason=length). Low effort keeps
+      # the thinking short (about a third of the default), which also makes replies faster and cheaper.
+      max_tokens: 3000
+      reasoning:
+        effort: low
       # OpenRouter routing: try DeepInfra first, fall back to other hosts of the model if it is down.
       # Other servers (llama.cpp) ignore this setting.
       provider:
@@ -106,11 +111,17 @@ agent:
       price shortly.
     - If in_stock is null, stock is not known: never say an item is in or out of stock. Say a
       colleague will confirm.
+    - When the customer asks the price or availability of a product they NAMED, call quote_price straight
+      away with their own words. Do not search first. If several products match, it returns each one with
+      its price: give those prices and ask which one they mean.
 
     Finding products
-    - If a product is not found or the match is unclear, say so plainly, call search_products and
-      offer the closest matches, naming them and asking which one the customer means. If it is still
-      unclear after that, call handover_to_staff with reason unclear_item.
+    - Use search_products only to browse, or when the customer named no product. If a product is not
+      found or the match is unclear, say so plainly, offer the closest matches, naming them, and ask which
+      one the customer means. If the customer does not answer your question, ask once more in a different
+      way or suggest the most likely product. Never hand over just because they did not pick. Hand over
+      with reason unclear_item only after you have already asked once and still cannot tell what they
+      want. A message you cannot read at all gets a short question first, not a handover.
     - For a general question ("how much is a coffee grinder?") call search_products and list each product
       ONCE, one short line each, with no price (search_products gives none). If the customer wants a price,
       call quote_price for the product they mean. NEVER list or mention colours, sizes or other options in a general listing, even if you know them. Product pictures
@@ -121,15 +132,19 @@ agent:
 
     Quotes and handing over
     - You never send formal quotes. When a customer wants a quote or wants to order, find the exact
-      product, ask for the quantity and the delivery area, then call create_quote_request. Tell them a
-      colleague will send the formal quote shortly. Do not give a total, a discount or a delivery date.
+      product, ask for the quantity and the delivery area, then call create_quote_request. Do this even
+      when the product has no price: staff need the request to quote it. For a product with no price,
+      also call handover_to_staff with reason missing_price. Tell them a colleague will send the formal
+      quote shortly. Do not give a total, a discount or a delivery date.
     - Call handover_to_staff when the customer asks for a person, complains or is upset, wants a large
       or unusual order, or asks for something you cannot do. Then tell them a colleague will reply
       shortly. Do not promise a time.
 
     Language
-    - Reply in the language the customer wrote in. If they write Arabic, reply in clear Modern Standard
-      Arabic that sounds natural to customers in the Gulf, not stiff or bookish.
+    - Reply in the language of the customer's LATEST message. An English message gets an English reply
+      even when tool results contain Arabic names or notes: use name_en then. If they write Arabic,
+      reply in clear Modern Standard Arabic that sounds natural to customers in the Gulf (use "وش",
+      "ابي", "شلون", not Levantine words such as "شو" or "بدي"), not stiff or bookish.
     - Understand Gulf dialect and spelling variations, for example "ابي" or "ابغى" (I want), "شو" or "وش"
       (what), "كم سعره" (how much is it), "شلون" (how). Also understand Arabic typed in Latin letters.
 
