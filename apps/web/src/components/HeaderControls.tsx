@@ -1,31 +1,52 @@
-import { useI18n } from '../i18n/context'
-import { useTheme } from '../theme/context'
-import { DeviceIcon, MoonIcon, SunIcon } from './icons'
+import { Languages, Monitor, Moon, Sun } from 'lucide-react'
 
-export function LanguageToggle() {
+import { useI18n } from '../i18n/context'
+import { type ThemeChoice, useTheme } from '../theme/context'
+
+/** Switches English and Arabic. `compact` shows only "ع" / "EN" (the icon rail). */
+export function LanguageToggle({ className = 'btn btn--ghost', compact = false }: { className?: string; compact?: boolean }) {
   const { lang, setLang, t } = useI18n()
   const other = lang === 'ar' ? 'en' : 'ar'
   return (
     <button
       type="button"
-      className="header-button"
+      className={className}
       lang={other}
       aria-label={t('lang.switchLabel')}
+      title={t('lang.switchLabel')}
       onClick={() => setLang(other)}
     >
-      {t('lang.switch')}
+      <Languages size={18} strokeWidth={1.5} aria-hidden="true" />
+      <span className="nav-item__label">{compact ? t('lang.short') : t('lang.switch')}</span>
     </button>
   )
 }
 
-export function ThemeToggle() {
-  const { choice, cycle } = useTheme()
+const OPTIONS: { choice: ThemeChoice; Icon: typeof Sun; key: 'theme.system' | 'theme.light' | 'theme.dark' }[] = [
+  { choice: 'system', Icon: Monitor, key: 'theme.system' },
+  { choice: 'light', Icon: Sun, key: 'theme.light' },
+  { choice: 'dark', Icon: Moon, key: 'theme.dark' },
+]
+
+/** System / Light / Dark. "System" follows the device; the choice is remembered in this browser. */
+export function ThemeSwitch() {
+  const { choice, setChoice } = useTheme()
   const { t } = useI18n()
-  const label = t(choice === 'system' ? 'theme.system' : choice === 'light' ? 'theme.light' : 'theme.dark')
-  const IconFor = choice === 'system' ? DeviceIcon : choice === 'light' ? SunIcon : MoonIcon
   return (
-    <button type="button" className="header-button header-button--icon" aria-label={label} title={label} onClick={cycle}>
-      <IconFor />
-    </button>
+    <div className="theme-switch" role="group" aria-label={t('theme.label')}>
+      {OPTIONS.map(({ choice: option, Icon, key }) => (
+        <button
+          key={option}
+          type="button"
+          className="theme-switch__option"
+          aria-pressed={choice === option}
+          aria-label={t(key)}
+          title={t(key)}
+          onClick={() => setChoice(option)}
+        >
+          <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+      ))}
+    </div>
   )
 }
