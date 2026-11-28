@@ -220,6 +220,9 @@ a {
 
 .app {
   display: grid;
+  /* minmax(0, 1fr): the column may never grow wider than the screen to fit wide content (the heatmap,
+     a long message), which would make the whole page scroll sideways on a phone. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   min-block-size: 100dvh;
 }
@@ -337,6 +340,7 @@ a {
   display: flex;
   flex-direction: column;
   min-block-size: 0;
+  min-inline-size: 0;
 }
 
 @media (max-width: 720px) {
@@ -517,6 +521,7 @@ a {
 }
 
 .chat-item__name {
+  min-inline-size: 0;
   overflow: hidden;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -530,9 +535,21 @@ a {
 }
 
 .chat-item__preview {
-  overflow: hidden;
+  display: flex;
+  gap: 4px;
+  min-inline-size: 0;
   color: var(--text-muted);
   font-size: 13px;
+}
+
+.chat-item__who {
+  flex: none;
+}
+
+/* The message keeps its own direction (dir="auto"), so an Arabic preview is cut at its end, not its start. */
+.chat-item__text {
+  min-inline-size: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -690,7 +707,7 @@ a {
 
 @media (max-width: 800px) {
   .chats {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .chats--open .chat-list,
@@ -1028,6 +1045,14 @@ a {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.rank__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .rank__row {

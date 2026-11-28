@@ -96,14 +96,18 @@ function ChatItem({ chat, selected, when }: { chat: ChatSummary; selected: boole
       </span>
       <span className="chat-item__body">
         <span className="chat-item__top">
-          <bdi className="chat-item__name">{name}</bdi>
+          <span className="chat-item__name" dir="auto">
+            {name}
+          </span>
           <time className="chat-item__time" dateTime={last}>
             {when(last)}
           </time>
         </span>
         <span className="chat-item__preview">
-          {prefix}
-          <bdi>{chat.last_message_text ?? ''}</bdi>
+          {prefix && <span className="chat-item__who">{prefix}</span>}
+          <span className="chat-item__text" dir="auto">
+            {chat.last_message_text ?? ''}
+          </span>
         </span>
         <span className="chat-item__chips">
           <span className="chip">{channelLabel(chat.channel, t)}</span>
