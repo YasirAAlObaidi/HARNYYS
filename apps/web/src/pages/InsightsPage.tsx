@@ -140,13 +140,9 @@ function Groups({ data, snapshot }: { data: PeriodData; snapshot: InsightSnapsho
             render={(m) => (
               <>
                 <RankList
+                  head={t('label.product')}
                   valueLabel={t('label.chats')}
-                  rows={m.items.map((item) => ({
-                    key: item.code,
-                    label: productName(item),
-                    value: item.chats,
-                    detail: `${t('label.asked')} ${fmt.number(item.asks)}`,
-                  }))}
+                  rows={m.items.map((item) => ({ key: item.code, label: productName(item), value: item.chats }))}
                 />
                 <p className="muted small">{t('stat.lookups', { n: fmt.number(m.lookups) })}</p>
               </>
@@ -195,6 +191,7 @@ function Groups({ data, snapshot }: { data: PeriodData; snapshot: InsightSnapsho
                   {t('stat.searches', { n: fmt.number(m.no_match + m.weak_match), total: fmt.number(m.searches) })}
                 </p>
                 <RankList
+                  head={t('label.search')}
                   valueLabel={t('label.times')}
                   rows={m.top.map((miss) => ({
                     key: `${miss.kind}:${miss.query}`,

@@ -51,11 +51,18 @@ export interface RankRow {
 }
 
 /** A short ranked list with a bar per row, longest first. Bars grow from the inline start. */
-export function RankList({ rows, valueLabel }: { rows: RankRow[]; valueLabel: string }) {
+export function RankList({ rows, valueLabel, head }: { rows: RankRow[]; valueLabel: string; head?: string }) {
   const { fmt, t } = useI18n()
   if (rows.length === 0) return <p className="muted">{t('stat.noData')}</p>
   const top = Math.max(...rows.map((row) => row.value), 1)
   return (
+    <>
+    {head && (
+      <p className="rank__head" aria-hidden="true">
+        <span>{head}</span>
+        <span>{valueLabel}</span>
+      </p>
+    )}
     <ol className="rank">
       {rows.map((row) => (
         <li key={row.key} className="rank__row">
@@ -73,5 +80,6 @@ export function RankList({ rows, valueLabel }: { rows: RankRow[]; valueLabel: st
         </li>
       ))}
     </ol>
+    </>
   )
 }
