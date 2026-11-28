@@ -937,6 +937,8 @@ a {
 
 .card__body {
   display: grid;
+  /* minmax(0, 1fr): a wide child (the heatmap) scrolls inside the card instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   min-inline-size: 0;
 }

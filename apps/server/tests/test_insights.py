@@ -394,3 +394,20 @@ def test_the_web_apps_fixture_is_what_the_server_sends() -> None:
     if os.environ.get("YYAI_WRITE_WEB_FIXTURE"):
         WEB_FIXTURE.write_text(json.dumps(expected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     assert json.loads(WEB_FIXTURE.read_text(encoding="utf-8")) == expected
+
+
+@pytest.mark.db
+async def test_an_hour_missed_while_the_machine_slept_is_made_at_once(db: Database) -> None:
+    now = [NOW]  # 14:00:05 Dubai
+    service = InsightService(
+        InsightStore(db), timezone="Asia/Dubai", working_hours=HOURS, weak_match_score=WEAK, clock=lambda: now[0]
+    )
+    workflow = InsightsWorkflow(service)
+    await workflow.refresh_if_stale()
+    now[0] = NOW + timedelta(minutes=30)
+    assert workflow.seconds_until_next_refresh() == pytest.approx(30 * 60 - 5 + 1)  # due at 15:00
+
+    now[0] = NOW + timedelta(hours=5)  # the box slept through 15:00, 16:00, 17:00 and 18:00
+    assert workflow.seconds_until_next_refresh() == pytest.approx(1)  # overdue: run now
+    await workflow.refresh()
+    assert workflow.seconds_until_next_refresh() == pytest.approx(3600 - 5 + 1)  # then back on the hour
