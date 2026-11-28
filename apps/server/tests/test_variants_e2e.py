@@ -57,7 +57,8 @@ async def test_general_listing_has_no_variant_names_and_queues_images(
     for word in ("Black", "White", "Red", "Groups", "أسود", "color"):
         assert word not in text
     f5 = next(r for r in result if r["name_en"] == "Fiorenzato F5 Coffee Grinder")
-    assert (f5["has_variants"], f5["price"], f5["price_from"], f5["code"]) == (True, 1600, True, "f5-grinder")
+    assert (f5["has_variants"], f5["code"]) == (True, "f5-grinder")
+    assert "price" not in f5  # prices come from quote_price only
 
     rows = env.sql.execute("SELECT kind, text, image_url, status FROM outbox ORDER BY id").fetchall()
     assert rows[0]["kind"] == "text"

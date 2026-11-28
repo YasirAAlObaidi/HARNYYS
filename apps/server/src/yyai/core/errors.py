@@ -38,3 +38,7 @@ class NotFound(YyaiError):
 
 class InvalidFile(YyaiError, ValueError):
     """An uploaded file cannot be read at all (not a spreadsheet, corrupt, empty)."""
+
+
+class Conflict(YyaiError):
+    """The record already exists, for example a staff username that is taken."""

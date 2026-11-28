@@ -3,8 +3,9 @@
 Unit tests need nothing. Tests marked `db` use a real Postgres: the dev server at 127.0.0.1:55432, started with
 `docker compose -f deploy/compose.dev.yaml up -d --wait` (or `scripts/setup-mac.sh`). They run
 in their own database, `yyai_test`, which is created if missing, migrated with Alembic and emptied before
-every test, so they never touch the dev data in the `yyai` database. When Postgres cannot be reached the
-`db` tests are skipped with a reason instead of failing.
+every test, so they never touch the dev data in the `yyai` database. Set YYAI_TEST_DB_NAME to use another
+database name, so two test runs on the same Postgres never empty each other's tables. When Postgres cannot
+be reached the `db` tests are skipped with a reason instead of failing.
 """
 
 from __future__ import annotations
@@ -32,7 +33,11 @@ PG_HOST = "127.0.0.1"
 PG_PORT = 55432
 PG_USER = "yyai"
 PG_PASSWORD = "yyai-dev"
-TEST_DB_NAME = "yyai_test"
+# Override with YYAI_TEST_DB_NAME when two test runs share the dev Postgres, so they never empty each other's
+# tables mid-test. Example: YYAI_TEST_DB_NAME=yyai_test_web uv run pytest -q
+TEST_DB_NAME = os.environ.get("YYAI_TEST_DB_NAME") or "yyai_test"
+if not TEST_DB_NAME.replace("_", "").isalnum():
+    raise RuntimeError(f"YYAI_TEST_DB_NAME must be letters, digits and underscores, not {TEST_DB_NAME!r}")
 
 # psycopg connection string to the dev database, used only to CREATE DATABASE.
 ADMIN_CONNINFO = (

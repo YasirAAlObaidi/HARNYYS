@@ -10,15 +10,19 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
+from yyai.core.text import phone_digits, western_digits
 from yyai.core.types import (
     ConversationSummary,
     InboundMessage,
     OutboundImage,
     OutboxRecord,
     StoredMessage,
+    TranscriptMessage,
     TurnRecord,
 )
 from yyai.handlers.persistence.conversations import ConversationStore
+
+MAX_QUERY_CHARS = 100
 
 
 class ConversationService:
@@ -88,5 +92,27 @@ class ConversationService:
 
     # --- read-only views -------------------------------------------------
 
-    async def list_conversations(self, limit: int) -> list[ConversationSummary]:
-        return await self._store.list_conversations(limit)
+    async def list_conversations(self, limit: int, query: str | None = None) -> list[ConversationSummary]:
+        """Customer chats, newest activity first. Never lists internal (staff) chats.
+
+        `query` matches the customer's name, number or message text. Eastern Arabic digits work, and a
+        number typed with spaces or + still finds the chat.
+        """
+        query = western_digits((query or "").strip())[:MAX_QUERY_CHARS]
+        if not query:
+            return await self._store.list_conversations(limit)
+        return await self._store.list_conversations(limit, query, phone_digits(query))
+
+    async def get_conversation(self, conversation_id: int) -> ConversationSummary | None:
+        return await self._store.get_conversation(conversation_id)
+
+    async def find_conversation(self, channel: str, external_user_id: str) -> int | None:
+        return await self._store.find_conversation(channel, external_user_id)
+
+    async def transcript(
+        self, conversation_id: int, limit: int, after_id: int | None = None
+    ) -> list[TranscriptMessage]:
+        return await self._store.transcript(conversation_id, limit, after_id)
+
+    async def has_pending_turn(self, conversation_id: int) -> bool:
+        return await self._store.has_pending_turn(conversation_id)

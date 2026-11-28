@@ -13,7 +13,8 @@ from typing import Any
 import pytest
 
 from yyai.core.errors import IntegrationError
-from yyai.core.types import CatalogueItem, CatalogueMatch, ItemPrice, RunContext, StockLevel
+from yyai.core.types import CatalogueItem, CatalogueMatch, ItemPrice, ProductGroup, RunContext, StockLevel
+from yyai.core.variants import group_matches
 from yyai.workflows.agent.registry import Tool
 from yyai.workflows.agent.tools import WEAK_MATCH_SCORE, build_product_tools
 
@@ -61,6 +62,15 @@ class FakeCatalogue:
 
     async def search(self, query: str, limit: int) -> list[CatalogueMatch]:
         return self.matches[:limit]
+
+    async def search_products(self, query: str, limit: int) -> list[ProductGroup]:
+        return group_matches(self.matches[:limit])[:limit]
+
+    async def group_for(self, item: CatalogueItem) -> ProductGroup:
+        return group_matches([CatalogueMatch(item=item, score=1.0)])[0]
+
+    async def group_by_key(self, key: str) -> ProductGroup | None:
+        return None
 
     async def get(self, code: str) -> CatalogueItem | None:
         return next((m.item for m in self.matches if m.item.code == code), None)
@@ -212,7 +222,7 @@ async def test_search_results_carry_no_prices() -> None:
     results = await call(tools(FakeCatalogue(matches), FakePricing())["search_products"], query="ethiopia")
 
     assert [r["code"] for r in results] == ["ETH-1KG", "ETH-250G"]
-    assert all(set(r) == {"code", "name_en", "name_ar", "category"} for r in results)
+    assert all(set(r) == {"code", "name_en", "name_ar", "category", "has_variants"} for r in results)
     assert not mentions(results, COPY_PRICE)
 
 

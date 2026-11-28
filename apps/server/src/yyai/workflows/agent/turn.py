@@ -22,7 +22,6 @@ from yyai.services.model import ModelService
 from yyai.services.requests import RequestService
 from yyai.workflows.agent.images import pick_images
 from yyai.workflows.agent.registry import ToolRegistry
-from yyai.workflows.agent.request_tools import INTERNAL_CHANNELS
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +41,7 @@ class _Progress:
     # Set when quote_price said only staff can answer (a product with no price), and when the model handed over.
     handover_needed: HandoverReason | None = None
     handed_over: bool = False
+    internal: bool = False  # a staff test chat: records nothing real
 
 
 class _KeepUnknown(dict):
@@ -106,6 +106,7 @@ class AgentTurnWorkflow:
             currency=self._client.currency,
             auto_send=self._agent.auto_send,
         )
+        progress.internal = ctx.internal
         progress.presented = ctx.presented  # the tools append to this list; our code reads it after the reply
         history = await self._conversations.history(turn.conversation_id, self._agent.history_messages)
         messages = [ChatMessage(role="system", content=self._system_prompt())]
@@ -200,7 +201,7 @@ class AgentTurnWorkflow:
             reason is None
             or progress.handed_over
             or self._requests is None
-            or turn.channel in INTERNAL_CHANNELS
+            or progress.internal
         ):
             return
         try:

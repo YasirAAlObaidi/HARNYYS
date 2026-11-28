@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from yyai.core.errors import IntegrationError
 from yyai.core.types import CatalogueItem, ItemPrice, PresentedProduct, ProductGroup, RunContext, StockLevel
 from yyai.core.variants import chosen_variants, variant_label
-from yyai.services.catalogue import CatalogueService
+from yyai.services.catalogue import CatalogueService, same_product
 from yyai.services.pricing import PricingService
 from yyai.workflows.agent.registry import Tool
 
@@ -103,8 +103,8 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
         groups = await catalogue.search_products(args.query, args.limit)
         results = []
         for group in groups:
-            priced = await _priced_items(pricing, group.items)
-            _present(ctx, group, priced, specific=False)
+            # Search finds products; it never carries a price. Prices come from quote_price (the product table).
+            _present(ctx, group, await _priced_items(pricing, group.items), specific=False)
             results.append(
                 {
                     # With options, `code` is the product's key: pass it to product_details to see the options.
@@ -112,7 +112,6 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
                     "name_en": group.name_en,
                     "name_ar": group.name_ar,
                     "category": group.category,
-                    **_summary(priced),
                     "has_variants": group.has_variants,
                 }
             )
@@ -123,6 +122,8 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
         if not groups:
             return {"found": False, "handover": False, "note": NOT_FOUND_NOTE}
         group, score = groups[0], groups[0].score
+        # Other colours of the same product (named alike, no shared base code) are not other products.
+        groups = [group] + [g for g in groups[1:] if not same_product(g.items[0], group.items[0])]
         others = [_short(g) for g in groups[1:3]]
         if score < WEAK_MATCH_SCORE:
             # The store keeps loose matches (score from 0.25) so that browsing works. For one quoted price a loose
@@ -218,12 +219,10 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
                 "Search the product catalogue by name, type, brand or use, in English or Arabic. "
                 "Use it to browse or when the customer has not named one specific product "
                 "(for example 'how much is a coffee grinder?'). Returns up to `limit` PRODUCTS, one entry per "
-                "product, with the table price (the lowest option's price; price_from is true when the options "
-                "cost different amounts, so say 'from AED X'; price null means there is no price you may give), "
-                "in_stock and has_variants. In a general listing, name each product once. NEVER list or mention "
-                "colours, sizes or other options in a listing, even if you know them. If has_variants is true, "
-                "the options are offered only AFTER the customer has picked that product: then call "
-                "product_details with its code to get them. For a firm price on one product call quote_price. "
+                "product, with item codes and NO prices: call quote_price for any price. In a general listing, name "
+                "each product once. NEVER list or mention colours, sizes or other options in a listing, even if "
+                "you know them. Once the customer has picked a product that comes in options, call "
+                "product_details with its code to get them. "
                 "An empty list means nothing matched: try simpler words or the other language before telling "
                 "the customer we do not have it."
             ),

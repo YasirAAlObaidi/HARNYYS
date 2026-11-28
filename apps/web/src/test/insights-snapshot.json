@@ -1,0 +1,1801 @@
+{
+  "version": 1,
+  "computed_at": "2026-11-26T14:00:05+04:00",
+  "next_at": "2026-11-26T15:00:00+04:00",
+  "timezone": "Asia/Dubai",
+  "working_hours": {
+    "confirmed": false,
+    "mon": "09:00-18:00",
+    "tue": "09:00-18:00",
+    "wed": "09:00-18:00",
+    "thu": "09:00-18:00",
+    "fri": "09:00-18:00",
+    "sat": "09:00-18:00",
+    "sun": "closed"
+  },
+  "periods": {
+    "today": {
+      "first_day": "2026-11-26",
+      "last_day": "2026-11-26",
+      "leads": {
+        "new_contacts": {
+          "status": "live",
+          "value": 2
+        },
+        "active_contacts": {
+          "status": "live",
+          "value": 2
+        },
+        "new_vs_returning": {
+          "status": "live",
+          "new": 2,
+          "returning": 0
+        },
+        "new_contacts_daily": {
+          "status": "live",
+          "series": [
+            {
+              "date": "2026-11-26",
+              "value": 2
+            }
+          ]
+        },
+        "quote_requests": {
+          "status": "not_tracked",
+          "needs": "quote_requests"
+        },
+        "quotes_sent": {
+          "status": "not_tracked",
+          "needs": "quotes_sent"
+        },
+        "lost_leads": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        },
+        "lost_at_step": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        }
+      },
+      "demand": {
+        "top_products": {
+          "status": "live",
+          "lookups": 2,
+          "items": [
+            {
+              "code": "COL-1KG",
+              "name_en": "Colombia Supremo 1 kg",
+              "name_ar": "منتج",
+              "chats": 1,
+              "asks": 1
+            },
+            {
+              "code": "FIO-F64",
+              "name_en": "Fiorenzato F64 EVO",
+              "name_ar": "منتج",
+              "chats": 1,
+              "asks": 1
+            }
+          ]
+        },
+        "price_vs_stock": {
+          "status": "estimate",
+          "price": 1,
+          "stock": 1,
+          "both": 0,
+          "messages": 3
+        },
+        "not_found": {
+          "status": "live",
+          "searches": 4,
+          "no_match": 2,
+          "weak_match": 0,
+          "top": [
+            {
+              "query": "chemex",
+              "count": 2,
+              "kind": "none"
+            }
+          ]
+        },
+        "languages": {
+          "status": "live",
+          "arabic": 3,
+          "english": 0,
+          "other": 0,
+          "messages": 3
+        },
+        "voice_notes": {
+          "status": "live",
+          "count": 0,
+          "chats": 0,
+          "messages": 3
+        }
+      },
+      "busy": {
+        "heatmap": {
+          "status": "live",
+          "cells": [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "max": 2
+        },
+        "chats_daily": {
+          "status": "live",
+          "series": [
+            {
+              "date": "2026-11-26",
+              "chats": 2,
+              "messages": 3
+            }
+          ]
+        },
+        "after_hours": {
+          "status": "live",
+          "after_hours": 1,
+          "messages": 3,
+          "hours_confirmed": false
+        },
+        "lost_leads_heatmap": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        }
+      }
+    },
+    "7d": {
+      "first_day": "2026-11-20",
+      "last_day": "2026-11-26",
+      "leads": {
+        "new_contacts": {
+          "status": "live",
+          "value": 3
+        },
+        "active_contacts": {
+          "status": "live",
+          "value": 4
+        },
+        "new_vs_returning": {
+          "status": "live",
+          "new": 3,
+          "returning": 1
+        },
+        "new_contacts_daily": {
+          "status": "live",
+          "series": [
+            {
+              "date": "2026-11-20",
+              "value": 0
+            },
+            {
+              "date": "2026-11-21",
+              "value": 0
+            },
+            {
+              "date": "2026-11-22",
+              "value": 1
+            },
+            {
+              "date": "2026-11-23",
+              "value": 0
+            },
+            {
+              "date": "2026-11-24",
+              "value": 0
+            },
+            {
+              "date": "2026-11-25",
+              "value": 0
+            },
+            {
+              "date": "2026-11-26",
+              "value": 2
+            }
+          ]
+        },
+        "quote_requests": {
+          "status": "not_tracked",
+          "needs": "quote_requests"
+        },
+        "quotes_sent": {
+          "status": "not_tracked",
+          "needs": "quotes_sent"
+        },
+        "lost_leads": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        },
+        "lost_at_step": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        }
+      },
+      "demand": {
+        "top_products": {
+          "status": "live",
+          "lookups": 2,
+          "items": [
+            {
+              "code": "COL-1KG",
+              "name_en": "Colombia Supremo 1 kg",
+              "name_ar": "منتج",
+              "chats": 1,
+              "asks": 1
+            },
+            {
+              "code": "FIO-F64",
+              "name_en": "Fiorenzato F64 EVO",
+              "name_ar": "منتج",
+              "chats": 1,
+              "asks": 1
+            }
+          ]
+        },
+        "price_vs_stock": {
+          "status": "estimate",
+          "price": 2,
+          "stock": 2,
+          "both": 0,
+          "messages": 5
+        },
+        "not_found": {
+          "status": "live",
+          "searches": 4,
+          "no_match": 2,
+          "weak_match": 0,
+          "top": [
+            {
+              "query": "chemex",
+              "count": 2,
+              "kind": "none"
+            }
+          ]
+        },
+        "languages": {
+          "status": "live",
+          "arabic": 3,
+          "english": 2,
+          "other": 1,
+          "messages": 6
+        },
+        "voice_notes": {
+          "status": "live",
+          "count": 1,
+          "chats": 1,
+          "messages": 6
+        }
+      },
+      "busy": {
+        "heatmap": {
+          "status": "live",
+          "cells": [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "max": 2
+        },
+        "chats_daily": {
+          "status": "live",
+          "series": [
+            {
+              "date": "2026-11-20",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-21",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-22",
+              "chats": 1,
+              "messages": 1
+            },
+            {
+              "date": "2026-11-23",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-24",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-25",
+              "chats": 1,
+              "messages": 2
+            },
+            {
+              "date": "2026-11-26",
+              "chats": 2,
+              "messages": 3
+            }
+          ]
+        },
+        "after_hours": {
+          "status": "live",
+          "after_hours": 4,
+          "messages": 6,
+          "hours_confirmed": false
+        },
+        "lost_leads_heatmap": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        }
+      }
+    },
+    "30d": {
+      "first_day": "2026-10-28",
+      "last_day": "2026-11-26",
+      "leads": {
+        "new_contacts": {
+          "status": "live",
+          "value": 3
+        },
+        "active_contacts": {
+          "status": "live",
+          "value": 4
+        },
+        "new_vs_returning": {
+          "status": "live",
+          "new": 3,
+          "returning": 1
+        },
+        "new_contacts_daily": {
+          "status": "live",
+          "series": [
+            {
+              "date": "2026-10-28",
+              "value": 0
+            },
+            {
+              "date": "2026-10-29",
+              "value": 0
+            },
+            {
+              "date": "2026-10-30",
+              "value": 0
+            },
+            {
+              "date": "2026-10-31",
+              "value": 0
+            },
+            {
+              "date": "2026-11-01",
+              "value": 0
+            },
+            {
+              "date": "2026-11-02",
+              "value": 0
+            },
+            {
+              "date": "2026-11-03",
+              "value": 0
+            },
+            {
+              "date": "2026-11-04",
+              "value": 0
+            },
+            {
+              "date": "2026-11-05",
+              "value": 0
+            },
+            {
+              "date": "2026-11-06",
+              "value": 0
+            },
+            {
+              "date": "2026-11-07",
+              "value": 0
+            },
+            {
+              "date": "2026-11-08",
+              "value": 0
+            },
+            {
+              "date": "2026-11-09",
+              "value": 0
+            },
+            {
+              "date": "2026-11-10",
+              "value": 0
+            },
+            {
+              "date": "2026-11-11",
+              "value": 0
+            },
+            {
+              "date": "2026-11-12",
+              "value": 0
+            },
+            {
+              "date": "2026-11-13",
+              "value": 0
+            },
+            {
+              "date": "2026-11-14",
+              "value": 0
+            },
+            {
+              "date": "2026-11-15",
+              "value": 0
+            },
+            {
+              "date": "2026-11-16",
+              "value": 0
+            },
+            {
+              "date": "2026-11-17",
+              "value": 0
+            },
+            {
+              "date": "2026-11-18",
+              "value": 0
+            },
+            {
+              "date": "2026-11-19",
+              "value": 0
+            },
+            {
+              "date": "2026-11-20",
+              "value": 0
+            },
+            {
+              "date": "2026-11-21",
+              "value": 0
+            },
+            {
+              "date": "2026-11-22",
+              "value": 1
+            },
+            {
+              "date": "2026-11-23",
+              "value": 0
+            },
+            {
+              "date": "2026-11-24",
+              "value": 0
+            },
+            {
+              "date": "2026-11-25",
+              "value": 0
+            },
+            {
+              "date": "2026-11-26",
+              "value": 2
+            }
+          ]
+        },
+        "quote_requests": {
+          "status": "not_tracked",
+          "needs": "quote_requests"
+        },
+        "quotes_sent": {
+          "status": "not_tracked",
+          "needs": "quotes_sent"
+        },
+        "lost_leads": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        },
+        "lost_at_step": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        }
+      },
+      "demand": {
+        "top_products": {
+          "status": "live",
+          "lookups": 2,
+          "items": [
+            {
+              "code": "COL-1KG",
+              "name_en": "Colombia Supremo 1 kg",
+              "name_ar": "منتج",
+              "chats": 1,
+              "asks": 1
+            },
+            {
+              "code": "FIO-F64",
+              "name_en": "Fiorenzato F64 EVO",
+              "name_ar": "منتج",
+              "chats": 1,
+              "asks": 1
+            }
+          ]
+        },
+        "price_vs_stock": {
+          "status": "estimate",
+          "price": 2,
+          "stock": 2,
+          "both": 0,
+          "messages": 5
+        },
+        "not_found": {
+          "status": "live",
+          "searches": 4,
+          "no_match": 2,
+          "weak_match": 0,
+          "top": [
+            {
+              "query": "chemex",
+              "count": 2,
+              "kind": "none"
+            }
+          ]
+        },
+        "languages": {
+          "status": "live",
+          "arabic": 3,
+          "english": 2,
+          "other": 1,
+          "messages": 6
+        },
+        "voice_notes": {
+          "status": "live",
+          "count": 1,
+          "chats": 1,
+          "messages": 6
+        }
+      },
+      "busy": {
+        "heatmap": {
+          "status": "live",
+          "cells": [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "max": 2
+        },
+        "chats_daily": {
+          "status": "live",
+          "series": [
+            {
+              "date": "2026-10-28",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-10-29",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-10-30",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-10-31",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-01",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-02",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-03",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-04",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-05",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-06",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-07",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-08",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-09",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-10",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-11",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-12",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-13",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-14",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-15",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-16",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-17",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-18",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-19",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-20",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-21",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-22",
+              "chats": 1,
+              "messages": 1
+            },
+            {
+              "date": "2026-11-23",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-24",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-25",
+              "chats": 1,
+              "messages": 2
+            },
+            {
+              "date": "2026-11-26",
+              "chats": 2,
+              "messages": 3
+            }
+          ]
+        },
+        "after_hours": {
+          "status": "live",
+          "after_hours": 4,
+          "messages": 6,
+          "hours_confirmed": false
+        },
+        "lost_leads_heatmap": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        }
+      }
+    },
+    "month": {
+      "first_day": "2026-11-01",
+      "last_day": "2026-11-26",
+      "leads": {
+        "new_contacts": {
+          "status": "live",
+          "value": 3
+        },
+        "active_contacts": {
+          "status": "live",
+          "value": 4
+        },
+        "new_vs_returning": {
+          "status": "live",
+          "new": 3,
+          "returning": 1
+        },
+        "new_contacts_daily": {
+          "status": "live",
+          "series": [
+            {
+              "date": "2026-11-01",
+              "value": 0
+            },
+            {
+              "date": "2026-11-02",
+              "value": 0
+            },
+            {
+              "date": "2026-11-03",
+              "value": 0
+            },
+            {
+              "date": "2026-11-04",
+              "value": 0
+            },
+            {
+              "date": "2026-11-05",
+              "value": 0
+            },
+            {
+              "date": "2026-11-06",
+              "value": 0
+            },
+            {
+              "date": "2026-11-07",
+              "value": 0
+            },
+            {
+              "date": "2026-11-08",
+              "value": 0
+            },
+            {
+              "date": "2026-11-09",
+              "value": 0
+            },
+            {
+              "date": "2026-11-10",
+              "value": 0
+            },
+            {
+              "date": "2026-11-11",
+              "value": 0
+            },
+            {
+              "date": "2026-11-12",
+              "value": 0
+            },
+            {
+              "date": "2026-11-13",
+              "value": 0
+            },
+            {
+              "date": "2026-11-14",
+              "value": 0
+            },
+            {
+              "date": "2026-11-15",
+              "value": 0
+            },
+            {
+              "date": "2026-11-16",
+              "value": 0
+            },
+            {
+              "date": "2026-11-17",
+              "value": 0
+            },
+            {
+              "date": "2026-11-18",
+              "value": 0
+            },
+            {
+              "date": "2026-11-19",
+              "value": 0
+            },
+            {
+              "date": "2026-11-20",
+              "value": 0
+            },
+            {
+              "date": "2026-11-21",
+              "value": 0
+            },
+            {
+              "date": "2026-11-22",
+              "value": 1
+            },
+            {
+              "date": "2026-11-23",
+              "value": 0
+            },
+            {
+              "date": "2026-11-24",
+              "value": 0
+            },
+            {
+              "date": "2026-11-25",
+              "value": 0
+            },
+            {
+              "date": "2026-11-26",
+              "value": 2
+            }
+          ]
+        },
+        "quote_requests": {
+          "status": "not_tracked",
+          "needs": "quote_requests"
+        },
+        "quotes_sent": {
+          "status": "not_tracked",
+          "needs": "quotes_sent"
+        },
+        "lost_leads": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        },
+        "lost_at_step": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        }
+      },
+      "demand": {
+        "top_products": {
+          "status": "live",
+          "lookups": 2,
+          "items": [
+            {
+              "code": "COL-1KG",
+              "name_en": "Colombia Supremo 1 kg",
+              "name_ar": "منتج",
+              "chats": 1,
+              "asks": 1
+            },
+            {
+              "code": "FIO-F64",
+              "name_en": "Fiorenzato F64 EVO",
+              "name_ar": "منتج",
+              "chats": 1,
+              "asks": 1
+            }
+          ]
+        },
+        "price_vs_stock": {
+          "status": "estimate",
+          "price": 2,
+          "stock": 2,
+          "both": 0,
+          "messages": 5
+        },
+        "not_found": {
+          "status": "live",
+          "searches": 4,
+          "no_match": 2,
+          "weak_match": 0,
+          "top": [
+            {
+              "query": "chemex",
+              "count": 2,
+              "kind": "none"
+            }
+          ]
+        },
+        "languages": {
+          "status": "live",
+          "arabic": 3,
+          "english": 2,
+          "other": 1,
+          "messages": 6
+        },
+        "voice_notes": {
+          "status": "live",
+          "count": 1,
+          "chats": 1,
+          "messages": 6
+        }
+      },
+      "busy": {
+        "heatmap": {
+          "status": "live",
+          "cells": [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "max": 2
+        },
+        "chats_daily": {
+          "status": "live",
+          "series": [
+            {
+              "date": "2026-11-01",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-02",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-03",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-04",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-05",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-06",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-07",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-08",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-09",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-10",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-11",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-12",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-13",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-14",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-15",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-16",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-17",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-18",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-19",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-20",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-21",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-22",
+              "chats": 1,
+              "messages": 1
+            },
+            {
+              "date": "2026-11-23",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-24",
+              "chats": 0,
+              "messages": 0
+            },
+            {
+              "date": "2026-11-25",
+              "chats": 1,
+              "messages": 2
+            },
+            {
+              "date": "2026-11-26",
+              "chats": 2,
+              "messages": 3
+            }
+          ]
+        },
+        "after_hours": {
+          "status": "live",
+          "after_hours": 4,
+          "messages": 6,
+          "hours_confirmed": false
+        },
+        "lost_leads_heatmap": {
+          "status": "not_tracked",
+          "needs": "lead_outcomes"
+        }
+      }
+    }
+  },
+  "not_tracked": {
+    "quote_requests": "A quote-request record: a tool or staff action that saves each request (customer, items, time).",
+    "quotes_sent": "A quote record with a 'sent' status and time, written when staff send a quote.",
+    "lead_outcomes": "A lead status per chat (asked, priced, quote requested, quote sent, won or lost) and the step where it was lost, set by staff or by a rule.",
+    "working_hours": "Opening hours in the client config (client.working_hours)."
+  },
+  "id": 1
+}

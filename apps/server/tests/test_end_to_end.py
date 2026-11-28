@@ -18,12 +18,14 @@ from typing import Any
 
 import httpx
 import psycopg
+import pyotp
 import pytest
 import respx
 import yaml
 
 from yyai.bootstrap import build
 from yyai.core.config import Config, load_config
+from yyai.core.types import StaffRole
 from yyai.entry.api.app import create_app
 from yyai.workflows.container import Workflows
 
@@ -39,6 +41,7 @@ CUSTOMER = "971501234567"
 CUSTOMER_NAME = "أحمد المنصوري"
 QUESTION = "كم سعر قهوة كولومبية سوبريمو ١ كجم؟"
 LIVE_PRICE = 139.5  # the demo file says 135: the difference proves the price was read live, not from the copy
+STAFF_PASSWORD = "correct horse battery staple"
 MISSING = object()
 
 
@@ -104,6 +107,16 @@ class Env:
     def count(self, table: str, where: str = "true") -> int:
         return self.one(f"SELECT count(*) AS n FROM {table} WHERE {where}")["n"]
 
+    async def login(self, role: StaffRole = StaffRole.ADMIN, username: str | None = None) -> None:
+        """Create a staff user and log this client in as them (password plus a fresh 2FA code)."""
+        username = username or f"e2e-{role.value}"
+        created = await self.workflows.staff.add_user(username, role, STAFF_PASSWORD)
+        code = pyotp.TOTP(created.totp_secret).now()
+        response = await self.http.post(
+            "/api/auth/login", json={"username": username, "password": STAFF_PASSWORD, "code": code}
+        )
+        assert response.status_code == 200, response.text
+
 
 @pytest.fixture
 async def make_env(
@@ -119,8 +132,9 @@ async def make_env(
             write_config(tmp_path, kahraman_dir, clean_database, catalogue_path, **config_overrides)
         )
         workflows = build(config)
+        # https, because the session cookie is Secure and is never sent over plain http.
         http = httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=create_app(workflows)), base_url="http://test"
+            transport=httpx.ASGITransport(app=create_app(workflows)), base_url="https://test"
         )
         opened.append((http, workflows))
         await workflows.catalogue_sync.run()
@@ -307,7 +321,9 @@ async def test_whatsapp_question_to_priced_answer(make_env, mock_http: respx.Moc
     assert audit[2]["data"]["text"] == FINAL_ANSWER
     assert audit[2]["data"]["usage"]["total_tokens"] == 120
 
-    # 5. Staff can read the conversation through the API.
+    # 5. Logged-in staff can read the conversation through the API. Without a login they cannot.
+    assert (await env.http.get("/api/conversations")).status_code == 401
+    await env.login(StaffRole.VIEWER)
     conversations = (await env.http.get("/api/conversations")).json()
     assert [(c["external_user_id"], c["customer_name"]) for c in conversations] == [(CUSTOMER, CUSTOMER_NAME)]
     messages = (await env.http.get(f"/api/conversations/{conversations[0]['id']}/messages")).json()
@@ -424,7 +440,9 @@ async def test_verification_handshake(make_env) -> None:
     unknown = await env.http.get("/api/webhooks/telegram", params=good)
     assert unknown.status_code == 404
     webchat = await env.http.get("/api/webhooks/webchat", params=good)
-    assert webchat.status_code == 403  # web chat has no handshake
+    assert webchat.status_code == 404  # web chat has no signature, so it is not on the public webhook route
+    staff = await env.http.get("/api/webhooks/staff", params=good)
+    assert staff.status_code == 404
 
 
 async def test_bad_signature_is_rejected_and_nothing_is_stored(make_env) -> None:
@@ -610,20 +628,80 @@ async def test_reply_after_the_24_hour_window_is_not_sent(make_env, mock_http: r
 # --- other channels and staff actions ---------------------------------------------------------------------------------------------
 
 
-async def test_webchat_round_trip_needs_no_outside_service(make_env, mock_http: respx.MockRouter) -> None:
+async def test_the_open_webchat_webhook_is_closed_even_when_logged_in(make_env) -> None:
     env: Env = await make_env()
-    mock_http.post(MODEL_URL).mock(return_value=httpx.Response(200, json=completion("أهلاً!")))
     body = json.dumps({"user_id": "web-42", "name": "Demo", "text": "مرحبا", "message_id": "web-1"}).encode()
 
-    response = await env.http.post("/api/webhooks/webchat", content=body)
-    assert response.status_code == 200
-    assert response.json() == {"received": 1, "new": 1}
-    await env.workflows.turns.run_once()
-    assert await env.workflows.outbox.deliver_once() is True
+    assert (await env.http.post("/api/webhooks/webchat", content=body)).status_code == 404
+    await env.login()
+    assert (await env.http.post("/api/webhooks/webchat", content=body)).status_code == 404
+    assert (await env.http.post("/api/webhooks/staff", content=body)).status_code == 404
+    assert env.count("conversations") == 0
 
-    assert env.one("SELECT channel, external_user_id FROM conversations")["channel"] == "webchat"
+
+async def test_staff_assistant_round_trip_is_internal(make_env, mock_http: respx.MockRouter) -> None:
+    """The Assistant page: same agent, same tools, but an internal chat that never shows as a customer's."""
+    env: Env = await make_env()
+    model = mock_http.post(MODEL_URL).mock(
+        side_effect=[
+            httpx.Response(200, json=completion(tool_calls=[quote_price_call()])),
+            httpx.Response(200, json=completion("135 AED")),
+        ]
+    )
+    assert (await env.http.post("/api/assistant/messages", json={"text": "سعر"})).status_code == 401
+    await env.login(StaffRole.SALES, "sara")
+
+    sent = await env.http.post("/api/assistant/messages", json={"text": QUESTION, "client_id": "c-1"})
+    assert (sent.status_code, sent.json()) == (200, {"queued": True})
+    again = await env.http.post("/api/assistant/messages", json={"text": QUESTION, "client_id": "c-1"})
+    assert again.json() == {"queued": False}  # a retried send is stored once
+    waiting = (await env.http.get("/api/assistant/messages")).json()
+    assert waiting["pending"] is True
+    assert [(m["author"], m["text"]) for m in waiting["messages"]] == [("customer", QUESTION)]
+
+    assert await env.workflows.turns.run_once() is True
+    assert await env.workflows.outbox.deliver_once() is True  # the staff channel needs no outside service
+
+    first_request = json.loads(model.calls[0].request.content)
+    assert {tool["function"]["name"] for tool in first_request["tools"]} >= {"quote_price", "search_products"}
+    assert "Kahraman" in first_request["messages"][0]["content"]  # the same prompt customers get
+    done = (await env.http.get("/api/assistant/messages")).json()
+    assert done["pending"] is False
+    assert [(m["author"], m["text"]) for m in done["messages"]] == [("customer", QUESTION), ("ai", "135 AED")]
+    newer = (await env.http.get("/api/assistant/messages", params={"after_id": done["messages"][0]["id"]})).json()
+    assert [m["text"] for m in newer["messages"]] == ["135 AED"]
+
+    conversation = env.one("SELECT id, channel, external_user_id, internal FROM conversations")
+    assert (conversation["channel"], conversation["internal"]) == ("staff", True)
     assert env.one("SELECT state FROM turns")["state"] == "sent"
-    assert env.one("SELECT provider_message_id FROM outbox")["provider_message_id"].startswith("webchat-")
+    # Not a customer chat: not listed, and not readable through the Chats routes.
+    assert (await env.http.get("/api/conversations")).json() == []
+    assert (await env.http.get(f"/api/conversations/{conversation['id']}/messages")).status_code == 404
+    assert (await env.http.get(f"/api/conversations/{conversation['id']}")).status_code == 404
+
+
+async def test_each_staff_user_has_their_own_assistant_chat(make_env, mock_http: respx.MockRouter) -> None:
+    env: Env = await make_env()
+    await env.login(StaffRole.SALES, "sara")
+    await env.http.post("/api/assistant/messages", json={"text": "hello from sara"})
+    await env.http.post("/api/auth/logout")
+    await env.login(StaffRole.ADMIN, "omar")
+
+    mine = (await env.http.get("/api/assistant/messages")).json()
+    assert mine == {"messages": [], "pending": False}
+    assert env.count("conversations", "channel = 'staff' AND internal") == 1
+
+
+async def test_a_viewer_cannot_use_the_assistant_or_admin_routes(make_env) -> None:
+    env: Env = await make_env()
+    await env.login(StaffRole.VIEWER)
+
+    assert (await env.http.get("/api/conversations")).status_code == 200
+    assert (await env.http.get("/api/insights")).status_code == 200
+    assert (await env.http.post("/api/assistant/messages", json={"text": "hi"})).status_code == 403
+    assert (await env.http.get("/api/assistant/messages")).status_code == 403
+    assert (await env.http.post("/api/admin/catalogue/sync")).status_code == 403
+    assert (await env.http.post("/api/outbox/1/approve")).status_code == 403
 
 
 async def test_replies_wait_for_staff_approval_when_auto_send_is_off(
@@ -640,6 +718,8 @@ async def test_replies_wait_for_staff_approval_when_auto_send_is_off(
     assert await env.workflows.outbox.deliver_once() is False
     assert graph.call_count == 0
 
+    assert (await env.http.post(f"/api/outbox/{outbox_id['id']}/approve")).status_code == 401
+    await env.login(StaffRole.SALES)
     assert (await env.http.post("/api/outbox/999/approve")).status_code == 404
     approved = await env.http.post(f"/api/outbox/{outbox_id['id']}/approve")
     assert approved.status_code == 200
@@ -648,6 +728,11 @@ async def test_replies_wait_for_staff_approval_when_auto_send_is_off(
 
     assert await env.workflows.outbox.deliver_once() is True
     assert graph.call_count == 1
+    audit = env.one("SELECT name, data, staff_user_id FROM audit_log WHERE kind = 'staff'")
+    assert (audit["name"], audit["data"]["outbox_id"], audit["data"]["username"]) == (
+        "approve_reply", outbox_id["id"], "e2e-sales"
+    )
+    assert audit["staff_user_id"] is not None
 
 
 async def test_health_and_admin_catalogue_sync(make_env) -> None:
@@ -657,13 +742,17 @@ async def test_health_and_admin_catalogue_sync(make_env) -> None:
     assert (health.status_code, health.json()) == (200, {"status": "ok", "database": "ok"})
 
     env.sql.execute("DELETE FROM catalogue_items")
+    assert (await env.http.post("/api/admin/catalogue/sync")).status_code == 401
+    await env.login(StaffRole.ADMIN)
     synced = await env.http.post("/api/admin/catalogue/sync")
     assert (synced.status_code, synced.json()) == (200, {"synced": 12})
     assert env.count("catalogue_items") == 12
+    assert env.one("SELECT name FROM audit_log WHERE kind = 'staff'")["name"] == "catalogue_sync"
 
 
 async def test_admin_sync_reports_an_unreadable_catalogue_as_a_502(make_env) -> None:
     env: Env = await make_env()
+    await env.login(StaffRole.ADMIN)
     env.catalogue_path.unlink()
     response = await env.http.post("/api/admin/catalogue/sync")
     assert response.status_code == 502

@@ -1,4 +1,4 @@
-"""The worker's loops: agent turns, outbox delivery, catalogue sync and recovery.
+"""The worker's loops: agent turns, outbox delivery, catalogue sync, recovery and the hourly Insights snapshot.
 
 Each loop catches and logs its own errors and carries on, so one bad turn or a
 down ERP never stops the others.
@@ -20,6 +20,7 @@ SYNC_RETRY_S = 60.0
 # How often recovery looks for dead turns. What counts as dead is `stale_after_s`; this is only how soon
 # after that a crashed turn gets noticed, so it stays short however long `stale_after_s` is.
 RECOVER_INTERVAL_S = 60.0
+INSIGHTS_RETRY_S = 300.0
 SHUTDOWN_GRACE_S = 20.0
 
 
@@ -60,6 +61,7 @@ async def run_worker(
             name="catalogue-sync",
         )
     )
+    tasks.append(asyncio.create_task(_insights_loop(workflows, stop), name="insights"))
     tasks.append(
         asyncio.create_task(
             _periodic_loop(
@@ -118,6 +120,25 @@ async def _periodic_loop(
             await _sleep(stop, retry_s)
             continue
         await _sleep(stop, interval_s)
+
+
+async def _insights_loop(workflows: Workflows, stop: asyncio.Event) -> None:
+    """The Insights snapshot: at start-up if the latest is over an hour old, then at the top of every hour
+    (client timezone). A failed run is tried again every INSIGHTS_RETRY_S until it works."""
+    insights = workflows.insights
+    try:
+        await insights.refresh_if_stale()
+    except Exception:
+        logger.exception("Insights snapshot at startup failed; the next try is at the top of the hour")
+    while not stop.is_set():
+        await _sleep(stop, insights.seconds_until_next_refresh())
+        while not stop.is_set():
+            try:
+                await insights.refresh()
+                break
+            except Exception:
+                logger.exception("Insights snapshot failed; trying again in %ss", INSIGHTS_RETRY_S)
+                await _sleep(stop, INSIGHTS_RETRY_S)
 
 
 async def _sleep(stop: asyncio.Event, seconds: float) -> None:

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from yyai.core.errors import ConfigError
 
@@ -38,10 +38,54 @@ def _expand(value: Any) -> Any:
     return value
 
 
+_HOURS = re.compile(r"^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$")
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+class WorkingHours(BaseModel):
+    """Opening hours in the client's timezone. Used only for the after-hours share on the Insights page.
+
+    Each day is "HH:MM-HH:MM" (24-hour clock) or "closed". `confirmed: false` marks hours the client has not
+    confirmed yet: the Insights page then says so next to the number.
+    """
+
+    confirmed: bool = False
+    mon: str = "closed"
+    tue: str = "closed"
+    wed: str = "closed"
+    thu: str = "closed"
+    fri: str = "closed"
+    sat: str = "closed"
+    sun: str = "closed"
+
+    @field_validator(*WEEKDAYS, mode="before")
+    @classmethod
+    def _check_day(cls, value: object) -> str:
+        text_value = str(value).strip().lower()
+        if text_value == "closed":
+            return text_value
+        if not _HOURS.match(text_value):
+            raise ValueError(f"must be 'HH:MM-HH:MM' (24-hour clock) or 'closed', not {text_value!r}")
+        if text_value[:5] >= text_value[6:]:
+            raise ValueError(f"the opening time must be before the closing time: {text_value!r}")
+        return text_value
+
+
 class ClientConfig(BaseModel):
     name: str
     currency: str = "AED"
     timezone: str = "Asia/Dubai"
+    working_hours: WorkingHours | None = None
+
+
+class AuthConfig(BaseModel):
+    """Staff logins for the web app (docs/decisions/0014). Every value has a safe default."""
+
+    session_hours: float = Field(12.0, gt=0, description="A session ends this long after login, used or not")
+    idle_minutes: float = Field(120.0, gt=0, description="A session also ends after this long with no request")
+    failure_window_minutes: float = Field(15.0, gt=0)
+    max_failures_per_user: int = Field(5, ge=1, description="Failed logins allowed per username in the window")
+    max_failures_per_ip: int = Field(20, ge=1, description="Failed logins allowed per address in the window")
 
 
 class ModelCapabilities(BaseModel):
@@ -98,6 +142,7 @@ class Config(BaseModel):
     channels: dict[str, BrandConfig]
     agent: AgentConfig
     worker: WorkerConfig = WorkerConfig()
+    auth: AuthConfig = AuthConfig()
 
     # Folder the config file lives in; relative paths in brand settings resolve from here.
     base_dir: Path = Path(".")
