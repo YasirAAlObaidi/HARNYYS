@@ -21,3 +21,5 @@ Each record explains one decision: why we made it, what it costs, and what we re
 | [0015](0015-arabic-rtl.md) | Arabic and right-to-left from day one | Accepted |
 | [0016](0016-evaluation.md) | Evaluation with replay tests | Accepted |
 | [0017](0017-stack.md) | Technology stack | Accepted |
+| [0018](0018-agent-memory-and-analytics.md) | Agent memory and analytics | Proposed |
+| [0019](0019-model-serving-and-vram-plan.md) | Model serving and VRAM plan for the target machine | Proposed |
