@@ -95,6 +95,10 @@
   margin-block-start: var(--space-10);
 }
 
+.insights__head + .insight-group {
+  margin-block-start: var(--space-6);
+}
+
 .insight-group__head {
   margin-block-end: var(--space-4);
 }
@@ -151,6 +155,7 @@
 
 .card__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-2);
@@ -407,6 +412,7 @@
 /* --- heatmap --------------------------------------------------------------------------------------------- */
 
 .heatmap {
+  position: relative;
   display: grid;
   gap: var(--space-3);
 }

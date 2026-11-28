@@ -69,8 +69,12 @@ p {
   transform: scaleX(-1);
 }
 
+/* Pinned to the corner of its container: left at its natural place, a wide hidden thing (the heatmap's
+   table) can sit off-screen in Arabic and make the page scroll sideways. */
 .visually-hidden {
   position: absolute !important;
+  inset-block-start: 0;
+  inset-inline-start: 0;
   inline-size: 1px;
   block-size: 1px;
   padding: 0;

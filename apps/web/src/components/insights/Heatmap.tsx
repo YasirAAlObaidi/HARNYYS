@@ -76,7 +76,8 @@ export function Heatmap({
           })}
       </div>
 
-      <table className="visually-hidden">
+      <div className="visually-hidden">
+      <table>
         <caption>{caption}</caption>
         <thead>
           <tr>
@@ -99,6 +100,7 @@ export function Heatmap({
           ))}
         </tbody>
       </table>
+      </div>
 
       <div className="heatmap__legend" aria-hidden="true">
         <span>{t('heatmap.fewer')}</span>
