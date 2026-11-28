@@ -4,12 +4,12 @@ import { NavLink, Outlet, useMatch } from 'react-router'
 
 import { useLogout } from '../api/queries'
 import type { StaffUser } from '../api/types'
-import logo from '../assets/kahraman-logo-white.svg'
 import mark from '../assets/kahraman-mark.svg'
 import { useI18n } from '../i18n/context'
 import { can } from '../lib/permissions'
 import { initial } from '../lib/people'
 import { LanguageToggle, ThemeSwitch } from './HeaderControls'
+import { Logo } from './Logo'
 
 const ICON = { size: 18, strokeWidth: 1.5, 'aria-hidden': true } as const
 
@@ -30,7 +30,7 @@ export function Layout({ user }: { user: StaffUser }) {
     <div className={`shell${drill ? ' shell--drill' : ''}`}>
       <nav className="sidebar" aria-label={t('nav.main')}>
         <div className="sidebar__brand">
-          <img src={logo} alt={t('app.name')} className="sidebar__logo" width="95" height="30" />
+          <Logo label={t('app.name')} className="sidebar__logo" />
           <img src={mark} alt={t('app.name')} className="sidebar__mark" width="28" height="28" />
         </div>
         {pages.map(({ to, label, Icon }) => (

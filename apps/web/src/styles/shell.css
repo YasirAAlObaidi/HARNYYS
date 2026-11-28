@@ -47,8 +47,8 @@
 
 .sidebar__logo {
   display: block;
-  inline-size: auto;
   block-size: 30px;
+  color: var(--kh-white);
 }
 
 .sidebar__mark {
