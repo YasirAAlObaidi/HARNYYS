@@ -14,6 +14,8 @@ Status on 26 Nov 2026, written for Yasir, who takes over the build. Yazan made t
 - Migration `0004` now follows `0003`.
 - Staff test chats use `RunContext.internal`, which is set from the conversation in `turn.py`, in both the request tools and the safety net.
 
+**Demo data:** `yyai demo seed` loads 60 fake "Demo customer N" chats with lookups, quote requests and handovers, so every web app page has data. `yyai demo clear` removes them. It refuses to run on a database with real chats. See "Demo data" in `deploy/README.md`.
+
 **If an old test database fails** with "staff_users does not exist", drop it: `docker exec yyai-dev-postgres-1 dropdb -U yyai yyai_test`.
 
 **Web app design: Yazan is NOT happy with it yet.** The redesign follows `apps/web/DESIGN.md` (Kahraman colours and vibe; quality modelled on Linear, Stripe and Front), but it needs more work. Ask Yazan what he wants changed before polishing further. Don't take inspiration from Kahraman's current website.

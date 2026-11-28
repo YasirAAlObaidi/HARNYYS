@@ -10,6 +10,9 @@
     yyai users disable NAME                       # also logs them out everywhere
     yyai users enable NAME
 
+    yyai demo seed [--chats 60] [--days 30]       # fake "Demo customer N" chats so every page has data
+    yyai demo clear                               # remove them again
+
 `users add` and `users reset` ask for the password (twice) and print the 2FA secret, the otpauth link and a QR
 code to scan with an authenticator app. With no terminal (a script), the password is read from one line of input.
 
@@ -34,10 +37,13 @@ from pathlib import Path
 import segno
 
 from yyai.bootstrap import build
-from yyai.core.config import load_config
+from yyai.core.config import Config, load_config
 from yyai.core.errors import Conflict, InvalidFile
 from yyai.core.logging import configure_logging
 from yyai.core.types import NewStaffUser, ProductImportReport, StaffRole
+from yyai.handlers.persistence.db import Database
+from yyai.handlers.persistence.demo import DemoStore
+from yyai.handlers.persistence.products import ProductStore
 from yyai.workflows.container import Workflows
 from yyai.workflows.products import ProductSheetWorkflow
 
@@ -93,11 +99,23 @@ def _parser() -> argparse.ArgumentParser:
     disable.add_argument("name")
     enable = user_actions.add_parser("enable", help="let a disabled user log in again")
     enable.add_argument("name")
+
+    demo = commands.add_parser("demo", help="fake demo chats for development and demos (never on a live box)")
+    demo_actions = demo.add_subparsers(dest="action", required=True)
+    seed = demo_actions.add_parser(
+        "seed", help="add fake 'Demo customer N' chats, lookups, quotes and handovers"
+    )
+    seed.add_argument("--chats", type=int, default=60, help="how many demo customers (default 60)")
+    seed.add_argument("--days", type=int, default=30, help="spread over this many days back (default 30)")
+    demo_actions.add_parser("clear", help="delete every demo chat and what hangs off it")
     return parser
 
 
 async def _dispatch(args: argparse.Namespace) -> int:
-    workflows = build(load_config())
+    config = load_config()
+    if args.command == "demo":
+        return await _demo(config, args)
+    workflows = build(config)
     try:
         if args.command == "users":
             return await _users(workflows, args)
@@ -109,6 +127,45 @@ async def _dispatch(args: argparse.Namespace) -> int:
         return EXIT_OK
     finally:
         await workflows.aclose()
+
+
+# --- demo data -------------------------------------------------------------------------------------------------
+
+
+async def _demo(config: Config, args: argparse.Namespace) -> int:
+    """Demo data is written straight through the persistence handlers: this is dev tooling, not app behaviour."""
+    db = Database(config.database_url)
+    demo = DemoStore(db)
+    try:
+        if args.action == "clear":
+            removed = await demo.clear()
+            print(f"Removed {removed} demo chat(s).")
+            return EXIT_OK
+        if await demo.has_real_chats():
+            print(
+                "This database has real customer chats. Demo data is never mixed with real data: nothing was added.",
+                file=sys.stderr,
+            )
+            return EXIT_USER_PROBLEM
+        await demo.clear()
+        products = await ProductStore(db).active_products()
+        try:
+            summary = await demo.seed(products, chats=max(1, args.chats), days=max(1, args.days))
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return EXIT_USER_PROBLEM
+    finally:
+        await db.aclose()
+    workflows = build(config)
+    try:
+        await workflows.insights.refresh()  # so Insights shows the demo numbers now, not at the next hour
+    finally:
+        await workflows.aclose()
+    print(
+        f"Added {summary.chats} demo chats ({summary.messages} messages, {summary.quote_requests} quote requests, "
+        f"{summary.handovers} handovers) and refreshed Insights. Remove them with: yyai demo clear"
+    )
+    return EXIT_OK
 
 
 # --- users -----------------------------------------------------------------------------------------------------

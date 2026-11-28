@@ -98,6 +98,21 @@ The header has an EN/العربية switch and a light/dark switch (it follows t
 
 For a quick test from another device before that, `YYAI_TLS=internal` with `YYAI_SITE=https://<box LAN address>` and `YYAI_HTTPS_BIND=<box LAN address>:8443` gives HTTPS with Caddy's own certificate. Browsers show a warning. Do not use it for real work.
 
+## Demo data (development and demos only)
+
+To see every page of the web app filled in, load fake chats:
+
+```
+docker compose -f deploy/compose.yaml run --rm server yyai demo seed      # 60 chats over 30 days
+docker compose -f deploy/compose.yaml run --rm server yyai demo clear     # remove them again
+```
+
+- Every fake customer is named "Demo customer N", so nobody mistakes them for real ones.
+- `seed` refuses to run if the database holds any real customer chat. Never use it on a live box.
+- The product sheet must be loaded first: the fake replies quote prices from the product table.
+- Insights is refreshed straight away.
+- If you show the demo data to a client, say it is sample data.
+
 ## Try it without WhatsApp
 
 First load the products (see "Products, prices and stock" below). Then create a user, log in to the web app and open **Assistant**. Ask a question, for example "How much is the Ethiopia Yirgacheffe 250g?" or "كم سعر قهوة كولومبيا 1 كجم؟". The worker answers in a few seconds.
