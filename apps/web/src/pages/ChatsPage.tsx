@@ -232,8 +232,8 @@ function Transcript({ id }: { id: number }) {
           </span>
         )}
         <div className="transcript__who">
-          <h2 id="transcript-title" className="transcript__name" dir="auto">
-            {chat.data ? name : missing ? t('chats.notFound') : t('loading')}
+          <h2 id="transcript-title" className="transcript__name">
+            {chat.data ? <bdi>{name}</bdi> : missing ? t('chats.notFound') : t('loading')}
           </h2>
           {chat.data && (
             <p className="transcript__sub">

@@ -35,7 +35,7 @@ from yyai.handlers.persistence.insights import InsightStore
 
 logger = logging.getLogger(__name__)
 
-SNAPSHOT_VERSION = 1
+SNAPSHOT_VERSION = 2  # 2: each period has `previous` (the numbers for the change on KPI cards)
 KEEP_SNAPSHOTS = timedelta(days=30)
 TOP_N = 10
 
@@ -86,6 +86,20 @@ def periods_for(today: date) -> list[Period]:
     ]
 
 
+def previous_of(period: Period) -> Period:
+    """What a period is compared with: today against the same weekday last week, 7 and 30 days against the
+    7 and 30 days before them, and this month to date against the same days of last month."""
+    if period.key == "today":
+        day = period.first_day - timedelta(days=7)
+        return Period("today", day, day)
+    if period.key == "month":
+        last_month_end = period.first_day - timedelta(days=1)
+        start = last_month_end.replace(day=1)
+        return Period("month", start, min(last_month_end, start.replace(day=1) + (period.last_day - period.first_day)))
+    length = (period.last_day - period.first_day).days + 1
+    return Period(period.key, period.first_day - timedelta(days=length), period.first_day - timedelta(days=1))
+
+
 def next_top_of_hour(moment: datetime, tz: ZoneInfo) -> datetime:
     """The next full hour after `moment`, in `tz` (14:00:00 exactly gives 15:00)."""
     local = moment.astimezone(tz)
@@ -134,11 +148,12 @@ class InsightService:
         now = self._clock()
         local_today = now.astimezone(self._tz).date()
         periods = periods_for(local_today)
-        first_day = min(p.first_day for p in periods)
+        first_day = min(min(p.first_day, previous_of(p).first_day) for p in periods)
         since = datetime.combine(first_day, time(0), tzinfo=self._tz)
         messages = await self._store.customer_messages(since)
         contacts = await self._store.contacts_active_since(since)
         calls = await self._store.tool_calls(since)
+        earliest = await self._store.earliest_customer_message()
         data = compute_snapshot(
             now,
             self._tz,
@@ -147,6 +162,7 @@ class InsightService:
             calls,
             working_hours=self._working_hours,
             weak_match_score=self._weak,
+            history_from=earliest.astimezone(self._tz).date() if earliest else None,
         )
         snapshot = await self._store.save_snapshot(now, data)
         await self._store.prune_snapshots(now - KEEP_SNAPSHOTS)
@@ -165,8 +181,15 @@ def compute_snapshot(
     *,
     working_hours: WorkingHours | None,
     weak_match_score: float,
+    history_from: date | None = None,
 ) -> dict[str, Any]:
-    """Every number on the Insights page, for each period. Only customer chats should be passed in."""
+    """Every number on the Insights page, for each period. Only customer chats should be passed in.
+
+    Each period also carries `previous`: the same few numbers for the period before it (see previous_of),
+    for the "change" on the KPI cards. It is None when stored data does not reach back to the start of that
+    earlier period (`history_from` is the day of the first customer message), because then a 0 would be
+    a gap in the data, not a real zero.
+    """
     local_now = now.astimezone(tz)
     periods = periods_for(local_now.date())
 
@@ -178,12 +201,15 @@ def compute_snapshot(
     for period in periods:
         in_period = [(m, at) for m, at in local_messages if period.covers(at.date())]
         calls_in_period = [c for c, day in local_calls if period.covers(day)]
+        before = previous_of(period)
+        covered = history_from is not None and history_from <= before.first_day
         result[period.key] = {
             "first_day": period.first_day.isoformat(),
             "last_day": period.last_day.isoformat(),
             "leads": _leads(period, in_period, first_day),
             "demand": _demand(in_period, calls_in_period, weak_match_score),
             "busy": _busy(period, in_period, working_hours),
+            "previous": _key_numbers(before, local_messages, first_day, working_hours) if covered else None,
         }
     return {
         "version": SNAPSHOT_VERSION,
@@ -202,6 +228,28 @@ def compute_snapshot(
 
 def _not_tracked(needs: str) -> dict[str, Any]:
     return {"status": "not_tracked", "needs": needs}
+
+
+def _key_numbers(
+    period: Period,
+    local_messages: list[tuple[CustomerMessageRow, datetime]],
+    first_day: dict[int, date],
+    working_hours: WorkingHours | None,
+) -> dict[str, Any]:
+    """The KPI-card numbers for one period, to compare the current period with."""
+    in_period = [(m, at) for m, at in local_messages if period.covers(at.date())]
+    active = {m.conversation_id for m, _ in in_period}
+    return {
+        "first_day": period.first_day.isoformat(),
+        "last_day": period.last_day.isoformat(),
+        "new_contacts": sum(1 for cid in active if cid in first_day and period.covers(first_day[cid])),
+        "active_contacts": len(active),
+        "messages": len(in_period),
+        "voice_notes": sum(1 for m, _ in in_period if "audio" in m.media),
+        "after_hours": (
+            sum(1 for _, at in in_period if not within_hours(at, working_hours)) if working_hours is not None else None
+        ),
+    }
 
 
 def _leads(

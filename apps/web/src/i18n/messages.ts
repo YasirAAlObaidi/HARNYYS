@@ -100,7 +100,7 @@ const en = {
   'assistant.copied': 'Copied',
   'assistant.suggest1': 'How much is the Colombia Supremo 1 kg?',
   'assistant.suggest2': 'Is the Fiorenzato F64 EVO grinder in stock?',
-  'assistant.suggest3': 'كم سعر قهوة إثيوبيا يرغاتشيفي ٢٥٠ غرام؟',
+  'assistant.suggest3': 'كم سعر قهوة إثيوبيا يرغاتشيفي 250 غرام؟',
   'assistant.suggest4': 'Which espresso machines do we sell?',
 
   'insights.title': 'Insights',

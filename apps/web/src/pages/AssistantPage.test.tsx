@@ -28,7 +28,7 @@ describe('assistant', () => {
     renderAt('/assistant')
     expect(await screen.findByRole('heading', { name: 'What do you need to check?' })).toBeInTheDocument()
     expect(screen.getByText(/not shown in Chats or counted in Insights/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'كم سعر قهوة إثيوبيا يرغاتشيفي ٢٥٠ غرام؟' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'كم سعر قهوة إثيوبيا يرغاتشيفي 250 غرام؟' })).toBeInTheDocument()
 
     await userEvent.type(screen.getByRole('textbox'), 'كم سعر الكولومبي؟{Enter}')
 

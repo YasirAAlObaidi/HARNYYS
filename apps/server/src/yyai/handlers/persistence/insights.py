@@ -44,6 +44,20 @@ class InsightStore:
             for r in rows
         ]
 
+    async def earliest_customer_message(self) -> datetime | None:
+        """When the first customer message was stored: periods before it have no data, not zero."""
+        async with self._db.engine.connect() as conn:
+            return (
+                await conn.execute(
+                    text(
+                        """
+                        SELECT min(m.created_at) FROM messages m JOIN conversations c ON c.id = m.conversation_id
+                        WHERE m.direction = 'in' AND NOT c.internal
+                        """
+                    )
+                )
+            ).scalar_one_or_none()
+
     async def contacts_active_since(self, since: datetime) -> list[ContactRow]:
         """Every customer who wrote since `since`, with the time they first wrote (which may be long before)."""
         async with self._db.engine.connect() as conn:
