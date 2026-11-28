@@ -345,3 +345,12 @@ async def test_200_with_a_non_json_body_is_an_integration_error(
     mock_http.post(CHAT_URL).mock(return_value=httpx.Response(200, text="<html>Welcome to the proxy</html>"))
     with pytest.raises(IntegrationError):
         await ask(model)
+
+
+async def test_tool_choice_defaults_to_auto_and_can_be_required(model: OpenAICompatModel) -> None:
+    spec = ToolSpec(name="quote_price", description="d", parameters={"type": "object"})
+    with respx.mock(assert_all_mocked=True) as router:
+        route = router.post(CHAT_URL).mock(return_value=httpx.Response(200, json=completion({"content": "ok"})))
+        await ask(model, tools=[spec])
+        await ask(model, tools=[spec], tool_choice="required")
+    assert [json.loads(c.request.content)["tool_choice"] for c in route.calls] == ["auto", "required"]

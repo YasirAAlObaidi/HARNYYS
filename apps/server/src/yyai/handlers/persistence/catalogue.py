@@ -76,6 +76,25 @@ class CatalogueStore:
             ).first()
         return _row_to_item(row._asdict()) if row else None
 
+    async def variants_of(self, keys: Sequence[str]) -> list[CatalogueItem]:
+        """Every item that names one of these base products (attributes.base_code or variant_of)."""
+        if not keys:
+            return []
+        async with self._db.engine.connect() as conn:
+            rows = (
+                await conn.execute(
+                    text(
+                        f"""
+                        SELECT {_COLUMNS} FROM catalogue_items
+                        WHERE attributes->>'base_code' = ANY(:keys) OR attributes->>'variant_of' = ANY(:keys)
+                        ORDER BY name_en
+                        """
+                    ),
+                    {"keys": list(keys)},
+                )
+            ).all()
+        return [_row_to_item(r._asdict()) for r in rows]
+
     async def categories(self) -> list[tuple[str, int]]:
         async with self._db.engine.connect() as conn:
             rows = (

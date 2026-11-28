@@ -11,7 +11,8 @@ from __future__ import annotations
 import logging
 
 from yyai.core.text import normalize_for_search
-from yyai.core.types import CatalogueItem, CatalogueMatch
+from yyai.core.types import CatalogueItem, CatalogueMatch, ProductGroup
+from yyai.core.variants import base_key, explicit_key, group_matches
 from yyai.handlers.persistence.catalogue import CatalogueStore
 from yyai.handlers.ports import InventoryPort
 
@@ -40,6 +41,9 @@ class CatalogueService:
         return await self._store.replace_all(pairs)
 
     async def search(self, query: str, limit: int) -> list[CatalogueMatch]:
+        return (await self._ranked(query, limit))[:limit]
+
+    async def _ranked(self, query: str, limit: int) -> list[CatalogueMatch]:
         normalized = normalize_for_search(query)
         if not normalized:
             return []
@@ -47,7 +51,38 @@ class CatalogueService:
         # "moka pot" means the moka pot, not the coffee whose description says it is ground for a moka pot.
         # An item whose name contains the query always scores 1.0, so this only reorders ties; the sort is stable.
         candidates.sort(key=lambda match: not _name_contains(match.item, normalized))
-        return candidates[:limit]
+        return candidates
+
+    async def search_products(self, query: str, limit: int) -> list[ProductGroup]:
+        """Matches grouped by base product: a grinder sold in three colours is one result, with all its variants."""
+        groups = group_matches(await self._ranked(query, limit))[:limit]
+        await self._complete(groups)
+        return groups
+
+    async def group_for(self, item: CatalogueItem) -> ProductGroup:
+        """The base product an item belongs to, with all its variants."""
+        group = group_matches([CatalogueMatch(item=item, score=1.0)])[0]
+        await self._complete([group])
+        return group
+
+    async def group_by_key(self, key: str) -> ProductGroup | None:
+        """A base product by its key (what search_products returns as `code` for a product with options)."""
+        siblings = await self._store.variants_of([key])
+        if not siblings:
+            return None
+        group = group_matches([CatalogueMatch(item=siblings[0], score=1.0)])[0]
+        group.items = siblings
+        return group
+
+    async def _complete(self, groups: list[ProductGroup]) -> None:
+        """Search only returns the variants that matched; fill in the rest so the options are complete."""
+        keys = [g.base_key for g in groups if any(explicit_key(i) for i in g.items)]
+        by_key: dict[str, list[CatalogueItem]] = {}
+        for item in await self._store.variants_of(keys):
+            by_key.setdefault(base_key(item), []).append(item)
+        for group in groups:
+            if group.base_key in by_key:
+                group.items = by_key[group.base_key]
 
     async def get(self, code: str) -> CatalogueItem | None:
         return await self._store.get(code)

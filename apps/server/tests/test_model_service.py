@@ -31,9 +31,11 @@ class ScriptedModel:
         tools: Sequence[ToolSpec],
         params: Mapping[str, Any],
         timeout_s: float,
+        tool_choice: str = "auto",
     ) -> ModelReply:
         self.requests.append(
             {
+                "tool_choice": tool_choice,
                 "model": model,
                 "messages": list(messages),
                 "tools": list(tools),
@@ -214,3 +216,10 @@ async def test_provider_errors_propagate() -> None:
 
     with pytest.raises(IntegrationError):
         await ModelService({ROLE: role_config()}, {ROLE: Failing()}).chat(ROLE, USER, [])
+
+
+async def test_tool_choice_is_passed_to_the_provider() -> None:
+    provider = ScriptedModel(ModelReply(text="ok"), ModelReply(text="ok"))
+    await service(provider).chat(ROLE, USER, TOOLS, tool_choice="required")
+    await service(provider).chat(ROLE, USER, TOOLS)
+    assert [r["tool_choice"] for r in provider.requests] == ["required", "auto"]

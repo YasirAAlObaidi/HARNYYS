@@ -8,15 +8,16 @@ runs out of steps. Everything is written to the audit log as it happens.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from yyai.core.config import AgentConfig, ClientConfig
 from yyai.core.errors import IntegrationError
-from yyai.core.types import ChatMessage, Direction, RunContext, TurnRecord
+from yyai.core.types import ChatMessage, Direction, PresentedProduct, RunContext, TurnRecord
 from yyai.services.conversation import ConversationService
 from yyai.services.model import ModelService
+from yyai.workflows.agent.images import pick_images
 from yyai.workflows.agent.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ OUT_OF_STEPS_NOTE = (
 @dataclass
 class _Progress:
     steps: int = 0
+    presented: list[PresentedProduct] = field(default_factory=list)
 
 
 class _KeepUnknown(dict):
@@ -68,7 +70,12 @@ class AgentTurnWorkflow:
         try:
             reply = await self._run(turn, progress)
             await self._conversations.finish_turn(
-                turn.id, turn.conversation_id, reply, auto_send=self._agent.auto_send, steps=progress.steps
+                turn.id,
+                turn.conversation_id,
+                reply,
+                auto_send=self._agent.auto_send,
+                steps=progress.steps,
+                images=pick_images(progress.presented, self._agent.max_images),
             )
         except Exception as exc:
             logger.exception("Turn %s failed", turn.id)
@@ -88,6 +95,7 @@ class AgentTurnWorkflow:
             currency=self._client.currency,
             auto_send=self._agent.auto_send,
         )
+        progress.presented = ctx.presented  # the tools append to this list; our code reads it after the reply
         history = await self._conversations.history(turn.conversation_id, self._agent.history_messages)
         messages = [ChatMessage(role="system", content=self._system_prompt())]
         messages.extend(
@@ -100,7 +108,15 @@ class AgentTurnWorkflow:
 
         for _ in range(self._agent.max_steps):
             progress.steps += 1
-            reply = await self._model.chat(self._role, messages, specs, validate=self._registry.validate)
+            # Step 1 must call a tool, so product facts come from the catalogue and not from the model's memory.
+            first = progress.steps == 1 and self._agent.require_tool_first_step and bool(specs)
+            reply = await self._model.chat(
+                self._role,
+                messages,
+                specs,
+                validate=self._registry.validate,
+                tool_choice="required" if first else "auto",
+            )
             await self._conversations.audit(
                 turn.id,
                 "model_reply",

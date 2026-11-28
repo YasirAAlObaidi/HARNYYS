@@ -73,6 +73,8 @@ class AgentConfig(BaseModel):
     history_messages: int = 20
     auto_send: bool = True
     fallback_reply: str | None = None
+    require_tool_first_step: bool = True  # step 1 must call a tool (stops invented product details)
+    max_images: int = 3  # product images sent after a reply; 0 turns them off
 
 
 class WorkerConfig(BaseModel):

@@ -39,6 +39,7 @@ class OpenAICompatModel:
         tools: Sequence[ToolSpec],
         params: Mapping[str, Any],
         timeout_s: float,
+        tool_choice: str = "auto",
     ) -> ModelReply:
         payload: dict[str, Any] = {"model": model, "messages": [_to_wire(m) for m in messages], **params}
         if tools:
@@ -46,7 +47,7 @@ class OpenAICompatModel:
                 {"type": "function", "function": {"name": t.name, "description": t.description, "parameters": t.parameters}}
                 for t in tools
             ]
-            payload["tool_choice"] = "auto"
+            payload["tool_choice"] = tool_choice
         try:
             response = await self._client.post("/chat/completions", json=payload, timeout=timeout_s)
         except httpx.HTTPError as exc:

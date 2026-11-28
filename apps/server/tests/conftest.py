@@ -119,3 +119,8 @@ def kahraman_dir() -> Path:
 @pytest.fixture(scope="session")
 def sample_catalogue() -> Path:
     return SAMPLE_CATALOGUE
+
+
+@pytest.fixture(scope="session")
+def variant_catalogue() -> Path:
+    return SERVER_DIR / "tests" / "fixtures" / "variant_catalogue.json"

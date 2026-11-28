@@ -30,9 +30,14 @@ class OutboxWorkflow:
         if record is None:
             return False
         try:
-            result = await self._messaging.send(
-                record.channel, record.to, record.text, record.last_inbound_at
-            )
+            if record.kind == "image" and record.image_url:
+                result = await self._messaging.send_image(
+                    record.channel, record.to, record.image_url, record.text, record.last_inbound_at
+                )
+            else:
+                result = await self._messaging.send(
+                    record.channel, record.to, record.text, record.last_inbound_at
+                )
         except WindowClosed as exc:
             # Only template messages are allowed now; waiting will not change that.
             logger.warning("Outbox %s not sent: %s", record.id, exc)

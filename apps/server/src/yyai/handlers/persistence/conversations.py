@@ -9,6 +9,7 @@ See docs/decisions/0007.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -19,6 +20,7 @@ from yyai.core.types import (
     ConversationSummary,
     Direction,
     InboundMessage,
+    OutboundImage,
     OutboxRecord,
     StoredMessage,
     TurnRecord,
@@ -138,8 +140,17 @@ class ConversationStore:
             attempts=row.attempts,
         )
 
-    async def finish_turn(self, turn_id: int, conversation_id: int, reply: str | None, *, auto_send: bool, steps: int) -> None:
-        """Save the reply, put it in the outbox, and move the turn on. One transaction."""
+    async def finish_turn(
+        self,
+        turn_id: int,
+        conversation_id: int,
+        reply: str | None,
+        *,
+        auto_send: bool,
+        steps: int,
+        images: Sequence[OutboundImage] = (),
+    ) -> None:
+        """Save the reply, put it and its images in the outbox (text first), and move the turn on. One transaction."""
         async with self._db.engine.begin() as conn:
             if not reply:
                 await conn.execute(
@@ -158,6 +169,7 @@ class ConversationStore:
                     {"cid": conversation_id, "text": reply, "tid": turn_id},
                 )
             ).scalar_one()
+            status = "pending" if auto_send else "awaiting_approval"
             await conn.execute(
                 text(
                     """
@@ -165,14 +177,18 @@ class ConversationStore:
                     VALUES (:cid, :tid, :mid, :text, :status)
                     """
                 ),
-                {
-                    "cid": conversation_id,
-                    "tid": turn_id,
-                    "mid": message_id,
-                    "text": reply,
-                    "status": "pending" if auto_send else "awaiting_approval",
-                },
+                {"cid": conversation_id, "tid": turn_id, "mid": message_id, "text": reply, "status": status},
             )
+            for image in images:  # inserted after the text, so their ids (the send order) are higher
+                await conn.execute(
+                    text(
+                        """
+                        INSERT INTO outbox (conversation_id, turn_id, kind, image_url, text, status)
+                        VALUES (:cid, :tid, 'image', :url, :caption, :status)
+                        """
+                    ),
+                    {"cid": conversation_id, "tid": turn_id, "url": image.url, "caption": image.caption, "status": status},
+                )
             await conn.execute(
                 text("UPDATE turns SET state = 'sending', steps = :steps, finished_at = now() WHERE id = :id"),
                 {"id": turn_id, "steps": steps},
@@ -254,10 +270,15 @@ class ConversationStore:
                         """
                         UPDATE outbox SET status = 'sending', attempts = attempts + 1, claimed_at = now()
                         WHERE id = (
-                          SELECT id FROM outbox
-                          WHERE status = 'pending' AND next_attempt_at <= now()
-                          ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)
-                        RETURNING id, conversation_id, turn_id, text, attempts
+                          SELECT o.id FROM outbox o
+                          WHERE o.status = 'pending' AND o.next_attempt_at <= now()
+                            -- A turn's messages go out in order: wait while an earlier one is still unsent.
+                            AND NOT EXISTS (
+                              SELECT 1 FROM outbox e
+                              WHERE e.turn_id = o.turn_id AND e.id < o.id
+                                AND e.status IN ('awaiting_approval', 'pending', 'sending'))
+                          ORDER BY o.id FOR UPDATE SKIP LOCKED LIMIT 1)
+                        RETURNING id, conversation_id, turn_id, text, kind, image_url, attempts
                         """
                     )
                 )
@@ -277,6 +298,8 @@ class ConversationStore:
             channel=conv.channel,
             to=conv.external_user_id,
             text=row.text,
+            kind=row.kind,
+            image_url=row.image_url,
             attempts=row.attempts,
             last_inbound_at=conv.last_inbound_at,
         )
@@ -293,16 +316,48 @@ class ConversationStore:
                 {"id": outbox_id, "pid": provider_message_id},
             )
             if turn_id is not None:
-                await conn.execute(text("UPDATE turns SET state = 'sent' WHERE id = :id"), {"id": turn_id})
+                # The turn is 'sent' only when every message of the turn has gone out.
+                await conn.execute(
+                    text(
+                        """
+                        UPDATE turns SET state = 'sent' WHERE id = :id AND NOT EXISTS (
+                          SELECT 1 FROM outbox WHERE turn_id = :id AND status IN ('awaiting_approval', 'pending', 'sending'))
+                        """
+                    ),
+                    {"id": turn_id},
+                )
 
     async def mark_send_failed(self, outbox_id: int, turn_id: int | None, error: str, retry_at: datetime | None) -> None:
         async with self._db.engine.begin() as conn:
             if retry_at is None:
-                await conn.execute(
-                    text("UPDATE outbox SET status = 'failed', last_error = :error WHERE id = :id"),
-                    {"id": outbox_id, "error": error[:2000]},
-                )
-                if turn_id is not None:
+                kind = (
+                    await conn.execute(
+                        text("UPDATE outbox SET status = 'failed', last_error = :error WHERE id = :id RETURNING kind"),
+                        {"id": outbox_id, "error": error[:2000]},
+                    )
+                ).scalar_one_or_none()
+                if turn_id is not None and kind == "image":
+                    # The reply text was delivered, so a lost picture does not fail the turn.
+                    await conn.execute(
+                        text(
+                            """
+                            UPDATE turns SET state = 'sent' WHERE id = :id AND state = 'sending' AND NOT EXISTS (
+                              SELECT 1 FROM outbox WHERE turn_id = :id AND status IN ('awaiting_approval', 'pending', 'sending'))
+                            """
+                        ),
+                        {"id": turn_id},
+                    )
+                elif turn_id is not None:
+                    # The text did not go out, so its pictures must not go out alone.
+                    await conn.execute(
+                        text(
+                            """
+                            UPDATE outbox SET status = 'failed', last_error = 'the reply text of this turn was not sent'
+                            WHERE turn_id = :id AND id > :oid AND status IN ('awaiting_approval', 'pending')
+                            """
+                        ),
+                        {"id": turn_id, "oid": outbox_id},
+                    )
                     await conn.execute(
                         text("UPDATE turns SET state = 'failed', error = :error WHERE id = :id"),
                         {"id": turn_id, "error": f"send failed: {error[:1900]}"},

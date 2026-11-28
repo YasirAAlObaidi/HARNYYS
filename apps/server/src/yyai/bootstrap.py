@@ -59,6 +59,7 @@ def _file_catalogue(settings: Mapping[str, Any], base_dir: Path) -> FileCatalogu
 
 
 def _whatsapp_cloud(channel: str, settings: Mapping[str, Any]) -> WhatsAppCloud:
+    images_dir = settings.get("images_dir")
     where = f"channels.{channel}"
     return WhatsAppCloud(
         channel=channel,
@@ -67,6 +68,7 @@ def _whatsapp_cloud(channel: str, settings: Mapping[str, Any]) -> WhatsAppCloud:
         app_secret=str(_setting(settings, "app_secret", "whatsapp_cloud", where)),
         verify_token=str(_setting(settings, "verify_token", "whatsapp_cloud", where)),
         graph_version=str(_setting(settings, "graph_version", "whatsapp_cloud", where)),
+        images_dir=str(images_dir) if images_dir else None,
     )
 
 

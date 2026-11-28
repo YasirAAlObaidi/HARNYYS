@@ -11,6 +11,7 @@ import hmac
 import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -18,8 +19,10 @@ import httpx
 from yyai.core.errors import IntegrationError, SignatureError
 from yyai.core.types import InboundMessage, MediaRef, SendResult
 from yyai.handlers.common.http import make_client, raise_for_status
+from yyai.handlers.integrations.whatsapp_cloud.formatting import to_whatsapp
 
 FREEFORM_WINDOW = timedelta(hours=24)
+MAX_CAPTION = 1024  # Meta caps an image caption at 1024 characters.
 MAX_TEXT = 4000  # Meta's limit is 4096 characters per text message.
 _MEDIA_KINDS = {"image", "audio", "video", "document", "sticker"}
 
@@ -34,12 +37,15 @@ class WhatsAppCloud:
         app_secret: str,
         verify_token: str,
         graph_version: str,
+        images_dir: str | Path | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.channel = channel
         self._phone_number_id = phone_number_id
         self._app_secret = app_secret.encode()
         self._verify_token = verify_token
+        self._images_dir = Path(images_dir) if images_dir else None
+        self._media_ids: dict[str, str] = {}  # local file name -> Meta media id (valid ~30 days)
         self._client = client or make_client(
             base_url=f"https://graph.facebook.com/{graph_version}",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -123,21 +129,70 @@ class WhatsAppCloud:
 
     async def send_text(self, to: str, text: str) -> SendResult:
         last_id = ""
-        for chunk in _chunks(text, MAX_TEXT):
-            payload = {
-                "messaging_product": "whatsapp",
-                "recipient_type": "individual",
-                "to": to,
-                "type": "text",
-                "text": {"preview_url": False, "body": chunk},
-            }
-            try:
-                response = await self._client.post(f"/{self._phone_number_id}/messages", json=payload)
-            except httpx.HTTPError as exc:
-                raise IntegrationError(f"WhatsApp unreachable: {exc}", retryable=True) from exc
-            raise_for_status(response, "WhatsApp send")
-            last_id = (response.json().get("messages") or [{}])[0].get("id", "")
+        for chunk in _chunks(to_whatsapp(text), MAX_TEXT):
+            last_id = await self._post_message(
+                to, {"type": "text", "text": {"preview_url": False, "body": chunk}}
+            )
         return SendResult(provider_message_id=last_id)
+
+    async def send_image(self, to: str, image_url: str, caption: str) -> SendResult:
+        """Send a picture. WhatsApp takes JPEG and PNG up to 5 MB. If we hold a local copy (images_dir plus its
+        manifest.json), upload it to Meta and send by media id; otherwise fall back to the link."""
+        caption = to_whatsapp(caption)[:MAX_CAPTION]
+        path = self._local_file(image_url)
+        if path is None:
+            image: dict[str, Any] = {"link": image_url}
+        else:
+            image = {"id": self._media_ids.get(path.name) or await self._upload(path)}
+        if caption:
+            image["caption"] = caption
+        try:
+            message_id = await self._post_message(to, {"type": "image", "image": image})
+        except IntegrationError:
+            if path is None or "id" not in image or not self._media_ids.get(path.name):
+                raise
+            # A cached id may have expired or been revoked: upload again once and retry.
+            self._media_ids.pop(path.name, None)
+            image["id"] = await self._upload(path)
+            message_id = await self._post_message(to, {"type": "image", "image": image})
+        return SendResult(provider_message_id=message_id)
+
+    def _local_file(self, image_url: str) -> Path | None:
+        if self._images_dir is None:
+            return None
+        try:
+            manifest = json.loads((self._images_dir / "manifest.json").read_text())
+        except (OSError, ValueError):
+            return None
+        name = manifest.get(image_url)
+        path = self._images_dir / name if name else None
+        return path if path is not None and path.is_file() else None
+
+    async def _upload(self, path: Path) -> str:
+        mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+        try:
+            response = await self._client.post(
+                f"/{self._phone_number_id}/media",
+                data={"messaging_product": "whatsapp", "type": mime},
+                files={"file": (path.name, path.read_bytes(), mime)},
+            )
+        except httpx.HTTPError as exc:
+            raise IntegrationError(f"WhatsApp unreachable: {exc}", retryable=True) from exc
+        raise_for_status(response, "WhatsApp media upload")
+        media_id = response.json().get("id")
+        if not media_id:
+            raise IntegrationError("WhatsApp media upload returned no id")
+        self._media_ids[path.name] = media_id
+        return media_id
+
+    async def _post_message(self, to: str, body: dict[str, Any]) -> str:
+        payload = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": to, **body}
+        try:
+            response = await self._client.post(f"/{self._phone_number_id}/messages", json=payload)
+        except httpx.HTTPError as exc:
+            raise IntegrationError(f"WhatsApp unreachable: {exc}", retryable=True) from exc
+        raise_for_status(response, "WhatsApp send")
+        return (response.json().get("messages") or [{}])[0].get("id", "")
 
 
 def _same(received: str, expected: str) -> bool:

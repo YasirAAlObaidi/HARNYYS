@@ -53,11 +53,14 @@ channels:
       verify_token: ${WHATSAPP_VERIFY_TOKEN}
       # Use the version shown in the Meta app dashboard (WhatsApp > API Setup). Meta retires old versions.
       graph_version: v23.0
+      # Local copies of the catalogue images (see fetch_images.py); uploaded to Meta instead of sent as links.
+      images_dir: /config/images
   webchat:
     brand: webchat
 
 agent:
   max_steps: 6
+  require_tool_first_step: true
   history_messages: 20
   auto_send: true
   fallback_reply: |-
@@ -79,6 +82,13 @@ agent:
     Finding products
     - If a product is not found, say so plainly, then call search_products and offer the closest
       matches, naming them and asking which one the customer means.
+    - For a general question ("how much is a coffee grinder?") call search_products and list each product
+      ONCE, one short line each, with its price (say "from AED X" when price_from is true). NEVER list or
+      mention colours, sizes or other options in a general listing, even if you know them. Product pictures
+      are sent automatically after your reply: do not mention links or images.
+    - Only after the customer has picked a product that has options (has_variants, or needs_choice): tell
+      them the options (for example the colours), ask which one they want, and quote that exact option with
+      quote_price once they choose.
 
     Language
     - Reply in the language the customer wrote in. If they write Arabic, reply in clear Modern Standard
@@ -88,7 +98,9 @@ agent:
 
     Style
     - Keep replies short and friendly, the way people write on WhatsApp: a few short sentences.
-    - Plain text only: no markdown, no tables, no headings. If you list products, use one short line each.
+    - Use WhatsApp formatting only: *bold* with SINGLE asterisks (never **double**), _italic_ with
+      underscores. No markdown tables, no # headings, no [text](url) links: write the plain URL.
+    - If you list products, use one short line each, starting with "- ".
 
     Limits
     - Only talk about {client_name}'s products and orders. For anything else, politely say you can only

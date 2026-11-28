@@ -33,6 +33,7 @@ class ModelService:
         messages: Sequence[ChatMessage],
         tools: Sequence[ToolSpec],
         validate: Validator | None = None,
+        tool_choice: str = "auto",
     ) -> ModelReply:
         config = self._roles.get(role)
         provider = self._providers.get(role)
@@ -53,6 +54,7 @@ class ModelService:
                 tools=tools,
                 params=config.params,
                 timeout_s=config.timeout_s,
+                tool_choice=tool_choice,
             )
 
         reply = await call(messages)

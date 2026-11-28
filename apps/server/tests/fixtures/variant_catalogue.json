@@ -1,0 +1,138 @@
+{
+ "_note": "TEST FIXTURE with variants",
+ "currency": "AED",
+ "vat_included": true,
+ "items": [
+  {
+   "code": "f5-grinder-black",
+   "name_en": "Fiorenzato F5 Coffee Grinder (Black)",
+   "name_ar": "مطحنة قهوة فيورينزاتو F5 (أسود)",
+   "category": "Grinders",
+   "description": "Fiorenzato F5 Coffee Grinder (Black) description",
+   "price": 1600,
+   "in_stock": true,
+   "image_url": "https://img.test/f5-black.jpg",
+   "attributes": {
+    "variant_of": "f5-grinder",
+    "color": "Black"
+   }
+  },
+  {
+   "code": "f5-grinder-white",
+   "name_en": "Fiorenzato F5 Coffee Grinder (White)",
+   "name_ar": "مطحنة قهوة فيورينزاتو F5 (أبيض)",
+   "category": "Grinders",
+   "description": "Fiorenzato F5 Coffee Grinder (White) description",
+   "price": 1600,
+   "in_stock": true,
+   "image_url": "https://img.test/f5-white.jpg",
+   "attributes": {
+    "variant_of": "f5-grinder",
+    "color": "White"
+   }
+  },
+  {
+   "code": "f5-grinder-red",
+   "name_en": "Fiorenzato F5 Coffee Grinder (Red)",
+   "name_ar": "مطحنة قهوة فيورينزاتو F5 (أحمر)",
+   "category": "Grinders",
+   "description": "Fiorenzato F5 Coffee Grinder (Red) description",
+   "price": 1700,
+   "in_stock": true,
+   "image_url": "https://img.test/f5-red.jpg",
+   "attributes": {
+    "variant_of": "f5-grinder",
+    "color": "Red"
+   }
+  },
+  {
+   "code": "f64-grinder-black",
+   "name_en": "Fiorenzato F64 Sense Coffee Grinder (Black)",
+   "name_ar": "مطحنة فيورينزاتو F64 (أسود)",
+   "category": "Grinders",
+   "description": "Fiorenzato F64 Sense Coffee Grinder (Black) description",
+   "price": 8000,
+   "in_stock": true,
+   "image_url": "https://img.test/f64-black.png",
+   "attributes": {
+    "variant_of": "f64-grinder",
+    "color": "Black"
+   }
+  },
+  {
+   "code": "f64-grinder-white",
+   "name_en": "Fiorenzato F64 Sense Coffee Grinder (White)",
+   "name_ar": "مطحنة فيورينزاتو F64 (أبيض)",
+   "category": "Grinders",
+   "description": "Fiorenzato F64 Sense Coffee Grinder (White) description",
+   "price": 8000,
+   "in_stock": true,
+   "image_url": "https://img.test/f64-white.png",
+   "attributes": {
+    "variant_of": "f64-grinder",
+    "color": "White"
+   }
+  },
+  {
+   "code": "lollo-2",
+   "name_en": "VBM Lollo Coffee Grinder (2 Groups)",
+   "name_ar": "مطحنة لولو (2 مجموعات)",
+   "category": "Grinders",
+   "description": "VBM Lollo Coffee Grinder (2 Groups) description",
+   "price": 12000,
+   "in_stock": true,
+   "image_url": "https://img.test/lollo-2.jpg",
+   "attributes": {
+    "variant_of": "lollo-grinder",
+    "groups": 2
+   }
+  },
+  {
+   "code": "lollo-3",
+   "name_en": "VBM Lollo Coffee Grinder (3 Groups)",
+   "name_ar": "مطحنة لولو (3 مجموعات)",
+   "category": "Grinders",
+   "description": "VBM Lollo Coffee Grinder (3 Groups) description",
+   "price": 13000,
+   "in_stock": true,
+   "image_url": "https://img.test/lollo-3.jpg",
+   "attributes": {
+    "variant_of": "lollo-grinder",
+    "groups": 3
+   }
+  },
+  {
+   "code": "hand-grinder",
+   "name_en": "Manual Hand Coffee Grinder",
+   "name_ar": "مطحنة قهوة يدوية",
+   "category": "Grinders",
+   "description": "Manual Hand Coffee Grinder description",
+   "price": 120,
+   "in_stock": true,
+   "image_url": "https://img.test/hand.webp",
+   "attributes": {}
+  },
+  {
+   "code": "grinder-nopic",
+   "name_en": "Pocket Coffee Grinder",
+   "name_ar": "مطحنة جيب",
+   "category": "Grinders",
+   "description": "Pocket Coffee Grinder description",
+   "price": 90,
+   "in_stock": true,
+   "image_url": null,
+   "attributes": {}
+  },
+  {
+   "code": "beans-1",
+   "name_en": "Colombia Supremo Beans",
+   "name_ar": "قهوة كولومبية",
+   "category": "Coffee Beans",
+   "description": "beans",
+   "price": 50,
+   "in_stock": true,
+   "image_url": "https://img.test/beans.jpg",
+   "attributes": {}
+  }
+ ]
+}

@@ -44,3 +44,7 @@ class WebChat:
     async def send_text(self, to: str, text: str) -> SendResult:
         # Nothing to deliver: the web app reads replies from our database.
         return SendResult(provider_message_id=f"webchat-{uuid.uuid4().hex[:16]}")
+
+    async def send_image(self, to: str, image_url: str, caption: str) -> SendResult:
+        # Same: the web app reads the image row from our database.
+        return SendResult(provider_message_id=f"webchat-{uuid.uuid4().hex[:16]}")

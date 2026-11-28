@@ -6,12 +6,14 @@ store, so the layers stay clean and storage can change without touching them.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
 from yyai.core.types import (
     ConversationSummary,
     InboundMessage,
+    OutboundImage,
     OutboxRecord,
     StoredMessage,
     TurnRecord,
@@ -46,9 +48,18 @@ class ConversationService:
         return await self._store.history(conversation_id, limit)
 
     async def finish_turn(
-        self, turn_id: int, conversation_id: int, reply: str | None, *, auto_send: bool, steps: int
+        self,
+        turn_id: int,
+        conversation_id: int,
+        reply: str | None,
+        *,
+        auto_send: bool,
+        steps: int,
+        images: Sequence[OutboundImage] = (),
     ) -> None:
-        await self._store.finish_turn(turn_id, conversation_id, reply, auto_send=auto_send, steps=steps)
+        await self._store.finish_turn(
+            turn_id, conversation_id, reply, auto_send=auto_send, steps=steps, images=images
+        )
 
     async def fail_turn(self, turn_id: int, error: str) -> None:
         await self._store.fail_turn(turn_id, error)

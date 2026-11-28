@@ -60,6 +60,21 @@ class CatalogueMatch(BaseModel):
     score: float
 
 
+class ProductGroup(BaseModel):
+    """One base product with all its variants (colours, group counts). A plain product is a group of one."""
+
+    base_key: str
+    name_en: str
+    name_ar: str | None = None
+    category: str | None = None
+    items: list[CatalogueItem]
+    score: float = 0.0
+
+    @property
+    def has_variants(self) -> bool:
+        return len(self.items) > 1
+
+
 class ItemPrice(BaseModel):
     code: str
     price: Decimal
@@ -139,6 +154,25 @@ class TurnRecord(BaseModel):
     attempts: int
 
 
+class OutboundImage(BaseModel):
+    """An image to send after the text reply. Chosen by our code, never by the model."""
+
+    url: str
+    caption: str
+
+
+class PresentedProduct(BaseModel):
+    """A product a tool showed the model this turn. Used afterwards to queue its image."""
+
+    key: str = Field(description="Base product key; a later, more specific entry replaces an earlier one")
+    name: str
+    price: Decimal | None = None
+    price_from: bool = False
+    currency: str = "AED"
+    image_url: str | None = None
+    specific: bool = Field(False, description="True when it came from quote_price/product_details")
+
+
 class OutboxRecord(BaseModel):
     id: int
     conversation_id: int
@@ -146,6 +180,8 @@ class OutboxRecord(BaseModel):
     channel: str
     to: str
     text: str
+    kind: Literal["text", "image"] = "text"
+    image_url: str | None = None
     attempts: int
     last_inbound_at: datetime | None
 
@@ -161,3 +197,4 @@ class RunContext(BaseModel):
     client_name: str
     currency: str
     auto_send: bool
+    presented: list[PresentedProduct] = Field(default_factory=list)

@@ -49,6 +49,8 @@ class MessagingPort(Protocol):
 
     async def send_text(self, to: str, text: str) -> SendResult: ...
 
+    async def send_image(self, to: str, image_url: str, caption: str) -> SendResult: ...
+
     def freeform_allowed(self, last_inbound_at: datetime | None) -> bool:
         """False when the provider only allows template messages (WhatsApp's 24-hour rule)."""
         ...
@@ -66,4 +68,5 @@ class ChatModelPort(Protocol):
         tools: Sequence[ToolSpec],
         params: Mapping[str, Any],
         timeout_s: float,
+        tool_choice: str = "auto",
     ) -> ModelReply: ...

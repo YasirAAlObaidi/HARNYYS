@@ -33,3 +33,11 @@ class MessagingService:
         if not port.freeform_allowed(last_inbound_at):
             raise WindowClosed(f"Channel {channel} only allows template messages to {to} right now")
         return await port.send_text(to, text)
+
+    async def send_image(
+        self, channel: str, to: str, image_url: str, caption: str, last_inbound_at: datetime | None
+    ) -> SendResult:
+        port = self._channel(channel)
+        if not port.freeform_allowed(last_inbound_at):
+            raise WindowClosed(f"Channel {channel} only allows template messages to {to} right now")
+        return await port.send_image(to, image_url, caption)
