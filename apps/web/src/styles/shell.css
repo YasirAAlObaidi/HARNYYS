@@ -1,0 +1,350 @@
+/*
+ * App shell: a green navigation rail at the inline start (right in Arabic), no top bar.
+ *   >= 1280px  sidebar 232px with labels
+ *   768-1279   icon rail 64px (labels become tooltips)
+ *   < 768      bottom tab bar 56px; a drilled-in screen (an open chat) hides it
+ */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--nav-width) minmax(0, 1fr);
+  min-block-size: 100dvh;
+}
+
+.shell__main {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 100dvh;
+}
+
+/* --- sidebar -------------------------------------------------------------------------------------------- */
+
+.sidebar {
+  position: sticky;
+  inset-block-start: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  block-size: 100dvh;
+  padding: var(--space-3);
+  border-inline-end: 1px solid var(--nav-border);
+  background: var(--nav-bg);
+  color: var(--nav-fg);
+}
+
+.sidebar :focus-visible {
+  outline-color: var(--focus-ring-on-nav);
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  min-block-size: 56px;
+  padding-inline: var(--space-2);
+  margin-block-end: var(--space-3);
+}
+
+.sidebar__logo {
+  display: block;
+  block-size: 30px;
+  color: var(--kh-white);
+}
+
+.sidebar__mark {
+  display: none;
+  inline-size: 28px;
+  block-size: 28px;
+}
+
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: 36px;
+  padding-inline: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--nav-fg-muted);
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background var(--dur-instant) ease-out, color var(--dur-instant) ease-out;
+}
+
+.nav-item:hover {
+  background: var(--nav-hover);
+  color: var(--nav-fg);
+}
+
+.nav-item[aria-current='page'] {
+  background: var(--nav-selected);
+  color: var(--nav-fg);
+}
+
+/* The one gold touch in the shell: a 3px bar on the active item. */
+.nav-item[aria-current='page']::before {
+  position: absolute;
+  inset-block: 8px;
+  inset-inline-start: 0;
+  inline-size: 3px;
+  border-radius: var(--radius-full);
+  background: var(--nav-indicator);
+  content: '';
+}
+
+.nav-item svg {
+  flex: none;
+}
+
+.sidebar__foot {
+  display: grid;
+  gap: var(--space-2);
+  margin-block-start: auto;
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid rgb(255 255 255 / 10%);
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.user-chip .avatar {
+  --avatar-bg: var(--nav-selected);
+
+  inline-size: 32px;
+  block-size: 32px;
+  color: var(--nav-fg);
+}
+
+.user-chip__text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+  line-height: var(--lh-sm);
+}
+
+.user-chip__name {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-chip__role {
+  color: var(--nav-fg-muted);
+  font-size: var(--text-xs);
+}
+
+.nav-icon-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 32px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--nav-fg-muted);
+}
+
+.nav-icon-button:hover {
+  background: var(--nav-hover);
+  color: var(--nav-fg);
+}
+
+/* Theme: System / Light / Dark, as a small segmented control. */
+.theme-switch {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 6%);
+}
+
+.theme-switch__option {
+  display: grid;
+  place-items: center;
+  block-size: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--nav-fg-muted);
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+
+.theme-switch__option[aria-pressed='true'] {
+  background: var(--nav-selected);
+  color: var(--nav-fg);
+}
+
+/* --- icon rail (768-1279px) ------------------------------------------------------------------------------ */
+
+@media (max-width: 1279px) {
+  .shell {
+    grid-template-columns: var(--nav-width-collapsed) minmax(0, 1fr);
+  }
+
+  .sidebar {
+    align-items: center;
+    padding-inline: var(--space-2);
+  }
+
+  .sidebar__brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sidebar__logo,
+  .sidebar .nav-item__label,
+  .sidebar .user-chip__text {
+    display: none;
+  }
+
+  .sidebar__mark {
+    display: block;
+  }
+
+  .nav-item {
+    justify-content: center;
+    inline-size: 44px;
+    padding: 0;
+  }
+
+  .sidebar__foot {
+    justify-items: center;
+  }
+
+  .theme-switch {
+    grid-auto-flow: row;
+  }
+
+  .theme-switch__option {
+    inline-size: 32px;
+  }
+
+  .user-chip {
+    flex-direction: column;
+    padding: 0;
+  }
+}
+
+/* --- bottom tab bar (< 768px) ---------------------------------------------------------------------------- */
+
+.tabbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .shell__main {
+    padding-block-end: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  }
+
+  .shell--drill .shell__main {
+    padding-block-end: 0;
+  }
+
+  .tabbar {
+    position: fixed;
+    z-index: 20;
+    inset-inline: 0;
+    inset-block-end: 0;
+    display: grid;
+    grid-auto-columns: 1fr;
+    grid-auto-flow: column;
+    block-size: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    padding-block-end: env(safe-area-inset-bottom);
+    border-block-start: 1px solid var(--border-default);
+    background: var(--bg-surface);
+  }
+
+  .shell--drill .tabbar {
+    display: none;
+  }
+}
+
+.tab {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  line-height: var(--lh-2xs);
+  text-decoration: none;
+}
+
+.tab[aria-current='page'],
+.tab[aria-expanded='true'] {
+  color: var(--text-primary);
+}
+
+.tab[aria-current='page'] svg {
+  color: var(--text-link);
+}
+
+/* The account sheet on a phone: language, theme and sign out. */
+.sheet {
+  position: fixed;
+  z-index: 30;
+  inset-inline: var(--space-2);
+  inset-block-end: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-2));
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-lg);
+  animation: sheet-in var(--dur-base) var(--ease-enter);
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.sheet__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.sheet .theme-switch {
+  min-inline-size: 132px;
+  background: var(--bg-sunken);
+}
+
+.sheet .theme-switch__option {
+  color: var(--text-muted);
+}
+
+.sheet .theme-switch__option[aria-pressed='true'] {
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-xs);
+  color: var(--text-primary);
+}

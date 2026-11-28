@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "computed_at": "2026-11-26T14:00:05+04:00",
   "next_at": "2026-11-26T15:00:00+04:00",
   "timezone": "Asia/Dubai",
@@ -321,6 +321,15 @@
           "status": "not_tracked",
           "needs": "lead_outcomes"
         }
+      },
+      "previous": {
+        "first_day": "2026-11-19",
+        "last_day": "2026-11-19",
+        "new_contacts": 0,
+        "active_contacts": 0,
+        "messages": 0,
+        "voice_notes": 0,
+        "after_hours": 0
       }
     },
     "7d": {
@@ -684,6 +693,15 @@
           "status": "not_tracked",
           "needs": "lead_outcomes"
         }
+      },
+      "previous": {
+        "first_day": "2026-11-13",
+        "last_day": "2026-11-19",
+        "new_contacts": 0,
+        "active_contacts": 0,
+        "messages": 0,
+        "voice_notes": 0,
+        "after_hours": 0
       }
     },
     "30d": {
@@ -1254,7 +1272,8 @@
           "status": "not_tracked",
           "needs": "lead_outcomes"
         }
-      }
+      },
+      "previous": null
     },
     "month": {
       "first_day": "2026-11-01",
@@ -1788,6 +1807,15 @@
           "status": "not_tracked",
           "needs": "lead_outcomes"
         }
+      },
+      "previous": {
+        "first_day": "2026-10-01",
+        "last_day": "2026-10-26",
+        "new_contacts": 0,
+        "active_contacts": 0,
+        "messages": 0,
+        "voice_notes": 0,
+        "after_hours": 0
       }
     }
   },

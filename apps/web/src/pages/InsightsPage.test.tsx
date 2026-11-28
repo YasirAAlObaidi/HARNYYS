@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { InsightSnapshot } from '../api/types'
 import { writeSetting } from '../lib/storage'
@@ -15,12 +15,40 @@ function card(title: string): HTMLElement {
   return heading.closest('article') as HTMLElement
 }
 
+// The fixture was computed at 14:00:05 Dubai time; the page is opened ten minutes later.
+const OPENED = new Date('2026-11-26T10:10:00Z')
+
 describe('insights', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(OPENED)
+  })
+  afterEach(() => vi.useRealTimers())
+
   it('shows when the numbers were computed and when the next ones come, in Dubai time', async () => {
     fakeApi({ 'GET /api/auth/me': { user: SALES_USER }, 'GET /api/insights': { snapshot } })
     renderAt('/insights')
 
     expect(await screen.findByText('Updated 14:00 · next 15:00')).toBeInTheDocument()
+  })
+
+  it('says plainly when the hourly numbers are late', async () => {
+    vi.setSystemTime(new Date('2026-11-26T14:20:00Z')) // 4 hours after the snapshot
+    fakeApi({ 'GET /api/auth/me': { user: SALES_USER }, 'GET /api/insights': { snapshot } })
+    renderAt('/insights')
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Data is 4 h old · last good run 14:00')
+  })
+
+  it('shows the change against the previous period, and no change when there is no earlier data', async () => {
+    fakeApi({ 'GET /api/auth/me': { user: SALES_USER }, 'GET /api/insights': { snapshot } })
+    renderAt('/insights')
+    await screen.findByText('Updated 14:00 · next 15:00')
+
+    // The fixture's data reaches back to 1 Oct: the 7 days before had no new contacts.
+    expect(card('New contacts')).toHaveTextContent('up from 0 · vs previous 7 days')
+    await userEvent.click(screen.getByRole('button', { name: '30 days' }))
+    expect(card('New contacts')).toHaveTextContent('No earlier data to compare')
   })
 
   it('never shows a number for a metric that is not tracked yet', async () => {
@@ -44,8 +72,8 @@ describe('insights', () => {
     // 7 days is the default period.
     expect(screen.getByRole('button', { name: '7 days' })).toHaveAttribute('aria-pressed', 'true')
     expect(card('New contacts')).toHaveTextContent('3')
-    expect(card('New vs returning')).toHaveTextContent(/New\s*3/)
-    expect(card('New vs returning')).toHaveTextContent(/Returning\s*1/)
+    expect(card('New vs returning')).toHaveTextContent(/New\s*75%\s*\(3\)/)
+    expect(card('New vs returning')).toHaveTextContent(/Returning\s*25%\s*\(1\)/)
     expect(card('Most-asked products')).toHaveTextContent('Colombia Supremo 1 kg')
     expect(card('Items we could not find')).toHaveTextContent('chemex')
     expect(within(card('Price vs stock questions')).getByText('Estimate')).toBeInTheDocument()

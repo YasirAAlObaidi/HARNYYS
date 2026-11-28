@@ -20,19 +20,20 @@ describe('header', () => {
     expect(document.documentElement).toHaveAttribute('dir', 'ltr')
   })
 
-  it('cycles the theme: device, light, dark, device; remembers the choice', async () => {
+  it('switches the theme: device, light or dark; remembers the choice', async () => {
     fakeApi({ 'GET /api/auth/me': { user: SALES_USER }, 'GET /api/conversations': [] })
     renderAt('/chats')
     await screen.findByRole('heading', { name: 'Chats' })
     const root = document.documentElement
 
     expect(root).not.toHaveAttribute('data-theme') // follows the device
-    await userEvent.click(screen.getByRole('button', { name: 'Theme: same as this device' }))
+    expect(screen.getByRole('button', { name: 'Same as this device' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Light' }))
     expect(root).toHaveAttribute('data-theme', 'light')
     expect(readSetting('yyai.theme')).toBe('light')
-    await userEvent.click(screen.getByRole('button', { name: 'Theme: light' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Dark' }))
     expect(root).toHaveAttribute('data-theme', 'dark')
-    await userEvent.click(screen.getByRole('button', { name: 'Theme: dark' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Same as this device' }))
     expect(root).not.toHaveAttribute('data-theme')
     expect(readSetting('yyai.theme')).toBeNull()
   })
@@ -45,7 +46,7 @@ describe('header', () => {
     renderAt('/chats')
     await screen.findByRole('heading', { name: 'Chats' })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Theme: same as this device' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Light' }))
 
     expect(document.documentElement).toHaveAttribute('data-theme', 'light')
   })
@@ -56,10 +57,12 @@ describe('header', () => {
 
     expect(await screen.findByRole('heading', { name: 'Chats' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/chats')
-    const nav = screen.getByRole('navigation', { name: 'Main' })
-    expect(nav).toHaveTextContent('Chats')
-    expect(nav).toHaveTextContent('Insights')
-    expect(nav).not.toHaveTextContent('Assistant')
+    // The sidebar and the phone tab bar both carry the pages; neither offers the Assistant.
+    for (const nav of screen.getAllByRole('navigation', { name: 'Main' })) {
+      expect(nav).toHaveTextContent('Chats')
+      expect(nav).toHaveTextContent('Insights')
+      expect(nav).not.toHaveTextContent('Assistant')
+    }
   })
 
   it('goes back to the login page when the session ends', async () => {
@@ -74,6 +77,6 @@ describe('header', () => {
     })
     renderAt('/chats')
 
-    expect(await screen.findByRole('heading', { name: 'Staff login' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
   })
 })

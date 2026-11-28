@@ -1,12 +1,13 @@
-# yyai on one box: Postgres, one-off migrations, the API server and the worker.
+# yyai on one box: Postgres, one-off migrations, the API server, the worker, and Caddy with the staff web app.
 # Optional: a Cloudflare tunnel for the WhatsApp webhook (profile "tunnel").
 #
 # Run from the repo root:
 #   cp deploy/.env.example deploy/.env      # then fill it in
 #   docker compose -f deploy/compose.yaml up -d --build
 #
+# Only Caddy is published (docs/decisions/0014). The server, worker and Postgres have no ports on the host.
 # The model server is NOT in this file: it runs outside Docker (docs/decisions/0004).
-# Caddy (HTTPS, web app) and the nightly backup job come later.
+# The nightly backup job comes later.
 
 name: yyai
 
@@ -55,10 +56,12 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    # Bound to this machine only. Caddy and the web app will sit in front of it later.
-    # Staff and customers must not reach the API directly, because it has no login yet.
-    ports:
-      - "127.0.0.1:8000:8000"
+    # No "ports": reached only through Caddy (and the tunnel, for the WhatsApp webhook).
+    environment:
+      YYAI_CONFIG: /config/config.yaml
+      # Trust X-Forwarded-For, so login throttling sees each browser's address and not Caddy's. Safe because
+      # only Caddy and cloudflared can reach this port, on the Compose network.
+      FORWARDED_ALLOW_IPS: "*"
     restart: unless-stopped
     # The slim image has no curl, so the check uses Python. A non-2xx answer raises and fails the check.
     healthcheck:
@@ -84,6 +87,35 @@ services:
     # extra_hosts:
     #   - "host.docker.internal:host-gateway"
 
+  # The staff web app and the only published service. Serves the app and sends /api/* to the server.
+  # Local testing: http://localhost:8080 on this machine. On a client box: HTTPS on the client's subdomain
+  # (see "Web app" in deploy/README.md and the PLACEHOLDER in apps/web/Caddyfile).
+  caddy:
+    image: yyai-web:dev
+    build:
+      context: ../apps/web
+    environment:
+      YYAI_SITE: ${YYAI_SITE:-http://:8080}
+      YYAI_TLS: ${YYAI_TLS:-none}
+      YYAI_DNS_PROVIDER: ${YYAI_DNS_PROVIDER:-}
+      YYAI_DNS_API_TOKEN: ${YYAI_DNS_API_TOKEN:-}
+    ports:
+      # This machine only, until the box has its subdomain and certificate. Then set YYAI_HTTPS_BIND in
+      # deploy/.env to "443" (all addresses) or "<LAN address>:443" so staff on the office network can reach it.
+      - "${YYAI_HTTP_BIND:-127.0.0.1:8080}:8080"
+      - "${YYAI_HTTPS_BIND:-127.0.0.1:8443}:8443"
+    volumes:
+      - caddy_data:/data # certificates
+    tmpfs:
+      - /config
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+
   # Public webhook tunnel. Off by default; turn it on with:
   #   docker compose -f deploy/compose.yaml --profile tunnel up -d
   #
@@ -101,3 +133,4 @@ services:
 
 volumes:
   pgdata:
+  caddy_data:

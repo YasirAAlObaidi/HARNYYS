@@ -24,6 +24,7 @@ from yyai.services.insights import (
     next_top_of_hour,
     parse_result,
     periods_for,
+    previous_of,
     question_topic,
 )
 from yyai.workflows.insights import InsightsWorkflow
@@ -383,7 +384,9 @@ def fixture_snapshot() -> dict[str, Any]:
         call(3, "quote_price", {"query": "chemex"}, {"found": False}),
         call(3, "search_products", {"query": "chemex"}, []),
     ]
-    data = compute_snapshot(NOW, DUBAI, messages, contacts, calls, working_hours=HOURS, weak_match_score=WEAK)
+    data = compute_snapshot(
+        NOW, DUBAI, messages, contacts, calls, working_hours=HOURS, weak_match_score=WEAK, history_from=date(2026, 10, 1)
+    )
     return {**data, "id": 1}  # the API adds the snapshot id when it serves it (workflows/insights.py)
 
 
@@ -394,3 +397,60 @@ def test_the_web_apps_fixture_is_what_the_server_sends() -> None:
     if os.environ.get("YYAI_WRITE_WEB_FIXTURE"):
         WEB_FIXTURE.write_text(json.dumps(expected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     assert json.loads(WEB_FIXTURE.read_text(encoding="utf-8")) == expected
+
+
+@pytest.mark.db
+async def test_an_hour_missed_while_the_machine_slept_is_made_at_once(db: Database) -> None:
+    now = [NOW]  # 14:00:05 Dubai
+    service = InsightService(
+        InsightStore(db), timezone="Asia/Dubai", working_hours=HOURS, weak_match_score=WEAK, clock=lambda: now[0]
+    )
+    workflow = InsightsWorkflow(service)
+    await workflow.refresh_if_stale()
+    now[0] = NOW + timedelta(minutes=30)
+    assert workflow.seconds_until_next_refresh() == pytest.approx(30 * 60 - 5 + 1)  # due at 15:00
+
+    now[0] = NOW + timedelta(hours=5)  # the box slept through 15:00, 16:00, 17:00 and 18:00
+    assert workflow.seconds_until_next_refresh() == pytest.approx(1)  # overdue: run now
+    await workflow.refresh()
+    assert workflow.seconds_until_next_refresh() == pytest.approx(3600 - 5 + 1)  # then back on the hour
+
+
+# --- the change against the previous period -----------------------------------------------------------------------
+
+
+def test_each_period_is_compared_with_the_one_before_it() -> None:
+    periods = {p.key: previous_of(p) for p in periods_for(date(2026, 11, 26))}
+    assert (periods["today"].first_day, periods["today"].last_day) == (date(2026, 11, 19), date(2026, 11, 19))
+    assert (periods["7d"].first_day, periods["7d"].last_day) == (date(2026, 11, 13), date(2026, 11, 19))
+    assert (periods["30d"].first_day, periods["30d"].last_day) == (date(2026, 9, 28), date(2026, 10, 27))
+    assert (periods["month"].first_day, periods["month"].last_day) == (date(2026, 10, 1), date(2026, 10, 26))
+    # 31 March is compared with the whole of February, never with days February does not have.
+    march = previous_of(periods_for(date(2027, 3, 31))[3])
+    assert (march.first_day, march.last_day) == (date(2027, 2, 1), date(2027, 2, 28))
+
+
+def test_previous_numbers_only_when_the_data_reaches_back_that_far() -> None:
+    messages = [
+        msg(1, dubai(26, 9), "hi"),
+        msg(2, dubai(15, 22), "[audio]", ("audio",)),  # in the 7 days before the current 7
+        msg(2, dubai(16, 10), "price?"),
+    ]
+    contacts = [ContactRow(1, dubai(26, 9)), ContactRow(2, dubai(15, 22))]
+
+    covered = compute_snapshot(
+        NOW, DUBAI, messages, contacts, [], working_hours=HOURS, weak_match_score=WEAK, history_from=date(2026, 11, 1)
+    )["periods"]
+    assert covered["7d"]["previous"] == {
+        "first_day": "2026-11-13",
+        "last_day": "2026-11-19",
+        "new_contacts": 1,
+        "active_contacts": 1,
+        "messages": 2,
+        "voice_notes": 1,
+        "after_hours": 1,
+    }
+    assert covered["30d"]["previous"] is None  # data starts 1 Nov; the earlier 30 days began 28 Sep
+
+    no_history = compute_snapshot(NOW, DUBAI, messages, contacts, [], working_hours=HOURS, weak_match_score=WEAK)
+    assert all(period["previous"] is None for period in no_history["periods"].values())

@@ -22,8 +22,8 @@ if ! command -v brew >/dev/null 2>&1; then
   exit 1
 fi
 
-step "Installing Colima, the Docker CLI, Compose, Buildx and uv (skipped if present)"
-for formula in colima docker docker-compose docker-buildx uv; do
+step "Installing Colima, the Docker CLI, Compose, Buildx, uv and Node (skipped if present)"
+for formula in colima docker docker-compose docker-buildx uv node; do
   if brew list --formula "$formula" >/dev/null 2>&1; then
     echo "$formula: already installed"
   else
@@ -66,10 +66,14 @@ docker compose -f "$REPO_DIR/deploy/compose.dev.yaml" up -d --wait
 step "Installing the Python environment (apps/server)"
 (cd "$REPO_DIR/apps/server" && uv sync)
 
+step "Installing the web app's packages from its lockfile (apps/web)"
+(cd "$REPO_DIR/apps/web" && npm ci --no-audit --no-fund)
+
 cat <<EOF
 
 Done. Check everything with:
   cd apps/server && uv run pytest -q && uv run lint-imports
+  cd apps/web && npm run lint && npm test && npm run build
 
 After a reboot, start Docker again with:  colima start
 (or have it start at login:  brew services start colima)

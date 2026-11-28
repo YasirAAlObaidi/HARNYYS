@@ -21,6 +21,7 @@ SYNC_RETRY_S = 60.0
 # after that a crashed turn gets noticed, so it stays short however long `stale_after_s` is.
 RECOVER_INTERVAL_S = 60.0
 INSIGHTS_RETRY_S = 300.0
+INSIGHTS_NAP_S = 60.0
 SHUTDOWN_GRACE_S = 20.0
 
 
@@ -131,7 +132,13 @@ async def _insights_loop(workflows: Workflows, stop: asyncio.Event) -> None:
     except Exception:
         logger.exception("Insights snapshot at startup failed; the next try is at the top of the hour")
     while not stop.is_set():
-        await _sleep(stop, insights.seconds_until_next_refresh())
+        wait = insights.seconds_until_next_refresh()
+        if wait > INSIGHTS_NAP_S:
+            # Sleep in short naps and look at the clock again. asyncio's clock stops while the machine sleeps, so
+            # one long sleep could wake hours late; this way a missed hour is caught within a nap.
+            await _sleep(stop, INSIGHTS_NAP_S)
+            continue
+        await _sleep(stop, wait)
         while not stop.is_set():
             try:
                 await insights.refresh()

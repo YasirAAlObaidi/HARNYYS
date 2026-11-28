@@ -6,21 +6,21 @@ Status on 26 Nov 2026, written for Yasir, who takes over the build. Yazan made t
 
 ## 1. Where everything is
 
-| Branch | What | State |
-|---|---|---|
-| `kahraman-phase-0` | Products table and Excel, search fixes, prices only from the table, quote requests and handovers, approval rules, Docker dev setup, voice test bench | Pushed. 360 tests pass. |
-| `kahraman-web-app` | Staff web app: logins with 2FA, Chats, Assistant and Insights pages (built by a second Claude agent) | Backend done and pushed. Frontend status in section 4. |
-| `main` | The skeleton from before | Untouched |
+**Everything is on `main`** (merged 28 Nov 2026): the Phase 0 work and the staff web app, including the redesign. The old branches `kahraman-phase-0` and `kahraman-web-app` are kept for history only.
 
-The approved plan (Phase 0 demo, Phase 1 production, Phase 2 operations) is summarised here. Ask Yazan for the full plan file if you need it.
+**Merge checks:** 433 server tests, `lint-imports` (5 contracts), ruff, and the web type-check, lint, 138 tests and build all pass.
 
-### Merging the two branches
-Both branches start from `244d477`. Merge `kahraman-web-app` into `kahraman-phase-0` (or both into `main`), then:
-1. **Migrations.** The web app adds `0003_staff_web_app` (down_revision `0002`). Phase 0 adds `0004_quote_requests_handovers`, also with down_revision `0002` for now. **Set 0004's `down_revision` to `"0003"`** so Alembic has one head.
-2. **Staff test chats.** `workflows/agent/request_tools.py` uses `INTERNAL_CHANNELS = {"staff"}` so staff test chats save no quote requests or handovers. The web branch adds `RunContext.internal`. Switch the check to `ctx.internal`, and do the same in the turn's safety net (`turn.py`, `_safety_net`).
-3. **Expected conflicts** (both branches added to the same places): `core/types.py`, `core/config.py`, `bootstrap.py`, `tests/test_end_to_end.py`, `tests/conftest.py`, `deploy/clients/kahraman/config.yaml`, `pyproject.toml`, `uv.lock`. Keep both sides.
-4. The web branch locks every `/api` route behind a login and closes the open webchat webhook. The Phase 0 e2e tests that call `/api/conversations` without a session need a logged-in client after the merge.
-5. Run `uv run pytest -q`, `uv run lint-imports` and `uv run ruff check` in `apps/server`.
+**Done during the merge:**
+- Migration `0004` now follows `0003`.
+- Staff test chats use `RunContext.internal`, which is set from the conversation in `turn.py`, in both the request tools and the safety net.
+
+**If an old test database fails** with "staff_users does not exist", drop it: `docker exec yyai-dev-postgres-1 dropdb -U yyai yyai_test`.
+
+**Web app design: Yazan is NOT happy with it yet.** The redesign follows `apps/web/DESIGN.md` (Kahraman colours and vibe; quality modelled on Linear, Stripe and Front), but it needs more work. Ask Yazan what he wants changed before polishing further. Don't take inspiration from Kahraman's current website.
+
+**Still to wire up after the merge:**
+- Insights reads `quote_price` results from the audit log (`found`, `code`, `name_en`, `match_score`). `quote_price` can now return `options` for several equal matches, with no top-level `code`. Check that "most-asked products" and "items not found" handle that case.
+- Turn on the "quote requests" card from the new `quote_requests` table.
 
 ## 2. Decisions (from Yazan, binding)
 
@@ -91,28 +91,45 @@ Both branches start from `244d477`. Merge `kahraman-web-app` into `kahraman-phas
 
 ## 4. Staff web app (branch `kahraman-web-app`)
 
-Built by a second Claude agent (Opus) to Yazan's spec: backend `3d12d11`, frontend `43d886a` (WIP).
+Built by a second Claude agent (Opus) to Yazan's spec. **Finished at `cffa29c`.**
 
-**Works at `43d886a`:**
-- **Login:** password plus TOTP, with throttling.
-- **Chats:** list, search and transcript, refreshed by polling.
-- **Assistant:** chat with the AI on the internal staff channel.
-- **Insights:**
-  - Three groups, with a period switch.
-  - "Updated 14:00 · next 15:00", and it refetches after the hour.
-  - "Not tracked yet" cards for metrics with no data source.
-- **Look and feel:**
-  - Kahraman colours: gold `#BB8F44` and white from the logo, green `#1E4A23` and charcoal `#12171B` from the site.
-  - Light and dark themes, checked for WCAG AA contrast.
-  - EN/AR with right-to-left layout, and a bundled IBM Plex Sans Arabic font.
-- **Checks:** web typecheck, lint, 98 vitest tests and `npm run build` pass. The server has 391 tests passing on that branch.
+**Checks (all pass):**
+- pytest: 392 tests, with `YYAI_TEST_DB_NAME=yyai_test_web`.
+- `lint-imports` and ruff.
+- Web: type-check, lint, 98 tests and `npm run build`.
+- The Caddy Docker build.
+- A real run against a stack, checked in headless Chrome.
 
-**Not done at that commit:**
-- The web Dockerfile, the Caddyfile and the `caddy` service in `deploy/compose.yaml`.
-- The web app section in `deploy/README.md`, `apps/web/README.md`, and Node in `setup-mac.sh`.
-- No check yet in a real browser or against a running stack.
+**Run it:**
+```
+docker compose -f deploy/compose.yaml up -d --build
+docker compose -f deploy/compose.yaml run --rm server yyai users add yasir --role admin
+```
+Then open http://localhost:8080. Other office PCs need HTTPS on Kahraman's subdomain. That is a marked placeholder until the subdomain and DNS provider are known.
 
-The agent was still working at handover. Newer commits may be on the branch.
+**Insights cards:**
+- **Live:**
+  - New contacts, customers who wrote, new vs returning, new contacts per day.
+  - Most-asked products and items not found.
+  - Arabic vs English, voice notes.
+  - The day × hour heatmap, chats per day, after-hours share.
+- **Estimate:** price vs stock questions (from keywords, and labelled as an estimate).
+- **"Not tracked yet":**
+  - Quote requests and quotes sent.
+  - Lost leads, the step where each was lost, and lost leads by day × hour.
+
+**Decisions waiting for Yazan:**
+- Viewers cannot use the Assistant.
+- Numbers show in Western digits in both languages.
+- Snapshots are kept for 30 days.
+- A session lasts 12 hours, or ends after 2 hours idle.
+- Working hours are a placeholder: Mon–Sat 09:00–18:00, Sunday closed.
+- 2FA secrets are stored in plain text, because encryption was deferred.
+
+**For the merge with `kahraman-phase-0`, on top of section 1:**
+- Insights reads `quote_price` and `product_details` results from the audit log, using `found`, `code`, `name_en`, `name_ar` and `match_score`. On phase-0, `quote_price` can now return `options` for several equal matches, with no top-level `code`, plus `clear_match`. Check that "most-asked products" and "items not found" handle that case. A compact per-call summary field would be sturdier than parsing results, which are cut at 2,000 characters.
+- Phase-0 adds the `quote_requests` table. Wire the "quote requests" card to it.
+- In `turn.py`, pass `internal=turn.internal` into `RunContext`, and use `ctx.internal` in `request_tools.py`.
 
 **Spec from Yazan:**
 - **Login:** username, password and TOTP 2FA, with roles admin, sales and viewer (ADR 0014).
@@ -182,7 +199,7 @@ From Yazan's samples (chat screenshots, voice notes, text questions), kept local
 
 ## 7. Known issues
 
-- **Docker image rebuild fails on this Mac** with `dns error` during `uv sync` in the build, even though containers resolve names fine. The running stack still has the image from before the second commit. The code itself passes all tests. Probably fixed by restarting Colima, or with `colima start --dns ...`.
+- **Fixed on 27 Nov: the Docker image rebuild** failed on the Mac with `dns error` during `uv sync`. `colima restart` fixed it. The stack was rebuilt and checked: migration `0004` applied, the worker loads all six tools, and `/api/health` is OK. If it comes back, restart Colima again.
 - **Six files were already unformatted** before this work and are left as they were (`ruff format --check`): `handlers/common/http.py`, `handlers/integrations/whatsapp_cloud/handler.py`, `handlers/model/openai_compat.py`, `handlers/persistence/catalogue.py`, `handlers/persistence/conversations.py`, `services/model.py`.
 - **No staff alert yet** for new quote requests and handovers. Staff see them only in the database for now, and in the web app after the merge.
 
@@ -192,6 +209,17 @@ From Yazan's samples (chat screenshots, voice notes, text questions), kept local
    - Shortlist 2–3 instruct models that fit in about 10 GB of graphics memory at Q4/Q5.
    - Test tool-calling in Gulf Arabic on the real text samples Yazan has locally: short price and spec questions in English and Arabic, about an HB 600 g roaster, Nicaragua by screen size, and LeBrew.
    - Yazan decides. Then make local the default in `config.yaml`: `external: false`, `allow_external: false`.
+   - **Shortlist (27 Nov, research only).** The budget is about 12 GB of graphics memory for the chat model, leaving room for Whisper.
+     - Gemma 4 12B: Google, Apache 2.0, native tool calling, about 6.7 GB at Q4.
+     - Ministral 3 14B Instruct: Mistral, Apache 2.0, native tool calling, Arabic listed, about 8–9 GB at Q4.
+     - One Arabic-native model:
+       - Jais-2-8B-Chat (UAE): best Arabic score at 13B and under, Gulf dialect and code-switching. Tool calling is not documented, and the download is gated.
+       - Falcon-H1-Arabic-7B (TII): 256K context, Falcon licence. Tool calling is unverified.
+     - Ruled out:
+       - ALLaM-7B and Fanar-9B: 4K context, too short for the prompt, the tools and the chat history.
+       - Qwen3.8 27B and Gemma 4 26B/31B: about 14–17 GB at Q4.
+       - Qwen3.8 Flash Next: too big.
+     - The real test: run the actual agent (prompt and tools) against each model through llama-server or Ollama on the Mac, using Yazan's real questions. Score tool-call reliability, Gulf Arabic replies, and never inventing a price.
 2. **WhatsApp test number and tunnel (step 7):** `docs/setup/whatsapp.html` and `deploy/README.md`.
 3. **Merge the web app branch** (section 1) and fix the Docker build.
 4. **From Kahraman:**

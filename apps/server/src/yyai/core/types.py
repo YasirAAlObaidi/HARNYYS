@@ -210,9 +210,13 @@ class TranscriptMessage(BaseModel):
     direction: Direction
     author: Author
     text: str
-    media: list[str] = Field([], description="Media kinds sent with the message, e.g. ['audio'] for a voice note")
+    media: list[str] = Field(
+        [], description="Media kinds sent with the message, e.g. ['audio'] for a voice note"
+    )
     created_at: datetime
-    delivery: str | None = Field(None, description="Outbox status of a reply: pending, sending, sent, failed ...")
+    delivery: str | None = Field(
+        None, description="Outbox status of a reply: pending, sending, sent, failed ..."
+    )
 
 
 class TurnRecord(BaseModel):
@@ -361,7 +365,9 @@ class LoginOutcome(BaseModel):
     user: StaffUser | None = None
     token: str | None = None
     expires_at: datetime | None = None
-    retry_after_s: int | None = Field(None, description="Set when login is throttled: seconds until it may be tried")
+    retry_after_s: int | None = Field(
+        None, description="Set when login is throttled: seconds until it may be tried"
+    )
 
 
 class NewStaffUser(BaseModel):

@@ -15,8 +15,10 @@ export interface Formatters {
   day: (isoDate: string) => string
   /** Short weekday name, 0 = Monday. */
   weekday: (mondayFirstIndex: number) => string
-  /** For chat lists: "14:05" today, "Yesterday", else "26 Nov". */
+  /** For chat lists: "14:05" today, "Yesterday", "Tue" within a week, else "26 Nov". */
   when: (iso: string, now?: Date) => string
+  /** For day separators: "Today", "Yesterday", else "26 Nov 2026". */
+  dayLabel: (iso: string, now?: Date) => string
 }
 
 export interface I18n {
@@ -56,7 +58,6 @@ export function makeFormatters(lang: Lang, t: I18n['t']): Formatters {
     }
     return format
   }
-  const localDay = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 
   return {
     number: (value) => numbers.format(value),
@@ -67,11 +68,25 @@ export function makeFormatters(lang: Lang, t: I18n['t']): Formatters {
     weekday: (index) => weekdays.format(new Date(Date.UTC(2024, 0, 1 + index))),
     when: (iso, now = new Date()) => {
       const at = new Date(iso)
-      if (localDay(at) === localDay(now)) return timeIn().format(at)
-      const yesterday = new Date(now)
-      yesterday.setDate(now.getDate() - 1)
-      if (localDay(at) === localDay(yesterday)) return t('time.yesterday')
+      const days = daysBetween(at, now)
+      if (days === 0) return timeIn().format(at)
+      if (days === 1) return t('time.yesterday')
+      if (days > 1 && days < 7) return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(at)
       return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(at)
     },
+    dayLabel: (iso, now = new Date()) => {
+      const at = new Date(iso)
+      const days = daysBetween(at, now)
+      if (days === 0) return t('time.today')
+      if (days === 1) return t('time.yesterday')
+      return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(at)
+    },
   }
+}
+
+/** Whole local calendar days from `at` to `now` (0 = same day). */
+function daysBetween(at: Date, now: Date): number {
+  const start = new Date(at.getFullYear(), at.getMonth(), at.getDate())
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000)
 }

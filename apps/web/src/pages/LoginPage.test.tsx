@@ -6,12 +6,14 @@ import { fakeApi, jsonResponse, renderAt, SALES_USER } from '../test/render'
 
 const loggedOut = () => jsonResponse(401, { detail: 'Log in first' })
 
+/** Step 1 (username and password, then Continue), step 2 (the code; six digits sign in by themselves). */
 async function fillIn(code: string) {
   const user = userEvent.setup()
   await user.type(await screen.findByLabelText('Username'), ' Sara ')
   await user.type(screen.getByLabelText('Password'), 'a long enough password')
-  await user.type(screen.getByLabelText('6-digit code'), code)
-  await user.click(screen.getByRole('button', { name: 'Log in' }))
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
+  await user.type(await screen.findByLabelText('6-digit code'), code)
+  if (code.replace(/\s/g, '').length < 6) await user.click(screen.getByRole('button', { name: 'Sign in' }))
 }
 
 describe('login', () => {
@@ -43,7 +45,7 @@ describe('login', () => {
 
     await fillIn('123456')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong username, password or code.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Username, password or code is incorrect.')
     expect(screen.getByLabelText('6-digit code')).toHaveValue('') // the code is used up either way
   })
 
@@ -56,7 +58,7 @@ describe('login', () => {
 
     await fillIn('123456')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Wait 5 min')
+    expect(await screen.findByRole('status')).toHaveTextContent('Try again in 4:50')
   })
 
   it('checks the code before sending anything', async () => {

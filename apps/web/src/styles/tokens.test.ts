@@ -1,6 +1,6 @@
 /// <reference types="node" />
 // Every text and UI colour pair in tokens.css meets WCAG 2.1 AA, in light and in dark:
-// 4.5:1 for text, 3:1 for borders, chart marks and focus rings.
+// 4.5:1 for text, 3:1 for control edges, focus rings, indicators and chart marks.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -9,17 +9,18 @@ import { describe, expect, it } from 'vitest'
 // Read from disk (the test runner does not load CSS). Vitest runs from apps/web.
 const css = readFileSync(resolve(process.cwd(), 'src/styles/tokens.css'), 'utf8')
 
-function block(selector: string): Record<string, string> {
-  const start = css.indexOf(`${selector} {`)
-  if (start < 0) throw new Error(`no ${selector} block in tokens.css`)
-  const body = css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start))
+function block(marker: string): Record<string, string> {
+  const start = css.indexOf(`/* ${marker} */`)
+  if (start < 0) throw new Error(`no ${marker} block in tokens.css`)
+  const open = css.indexOf('{', start)
+  const body = css.slice(open + 1, css.indexOf('}', open))
   const tokens: Record<string, string> = {}
   for (const match of body.matchAll(/--([\w-]+):\s*(#[0-9a-f]{6})\s*;/gi)) tokens[match[1]!] = match[2]!.toLowerCase()
   return tokens
 }
 
-const light = block(':root')
-const dark = { ...light, ...block(":root[data-theme='dark']") }
+const light = block('@light')
+const dark = { ...light, ...block('@dark') }
 
 function luminance(hex: string): number {
   const [r, g, b] = [1, 3, 5].map((i) => {
@@ -34,45 +35,56 @@ function contrast(a: string, b: string): number {
   return (hi! + 0.05) / (lo! + 0.05)
 }
 
+const SURFACES = ['bg-canvas', 'bg-surface', 'bg-raised', 'bg-overlay']
+
 const TEXT: [string, string][] = [
-  ['text', 'bg'],
-  ['text', 'surface'],
-  ['text', 'surface-2'],
-  ['text-muted', 'bg'],
-  ['text-muted', 'surface'],
-  ['text-muted', 'surface-2'],
-  ['on-primary', 'primary'],
-  ['on-primary', 'primary-hover'],
-  ['accent-text', 'bg'],
-  ['accent-text', 'surface'],
-  ['accent-text', 'surface-2'],
-  ['accent-text', 'bubble-ai'],
-  ['accent-text', 'warning-bg'],
-  ['header-text', 'header-bg'],
-  ['header-muted', 'header-bg'],
-  ['bubble-text', 'bubble-customer'],
-  ['bubble-text', 'bubble-ai'],
-  ['bubble-text', 'bubble-staff'],
-  ['text-muted', 'bubble-customer'],
-  ['text-muted', 'bubble-ai'],
-  ['text-muted', 'bubble-staff'],
-  ['success', 'bubble-staff'],
-  ['danger', 'surface'],
-  ['danger', 'danger-bg'],
-  ['danger', 'bubble-ai'],
-  ['text', 'warning-bg'],
+  ...SURFACES.map((bg): [string, string] => ['text-primary', bg]),
+  ...SURFACES.map((bg): [string, string] => ['text-secondary', bg]),
+  ...SURFACES.map((bg): [string, string] => ['text-muted', bg]),
+  ['text-primary', 'bg-sunken'],
+  ['text-muted', 'bg-sunken'],
+  ['text-primary', 'bg-selected'],
+  ['text-secondary', 'bg-selected'],
+  ['action-primary-fg', 'action-primary-bg'],
+  ['action-primary-fg', 'action-primary-hover'],
+  ['action-secondary-fg', 'action-secondary-bg'],
+  ['accent-gold-ink', 'bg-canvas'],
+  ['accent-gold-ink', 'bg-surface'],
+  ['accent-gold-ink', 'bg-raised'],
+  ['accent-gold-ink', 'accent-gold-subtle'],
+  ['text-primary', 'accent-gold-subtle'],
+  ['text-primary', 'bubble-in-bg'],
+  ['text-primary', 'bubble-out-bg'],
+  ['text-primary', 'bubble-note-bg'],
+  ['bubble-meta', 'bubble-in-bg'],
+  ['bubble-meta', 'bubble-out-bg'],
+  ['bubble-meta', 'bubble-note-bg'],
+  ['nav-fg', 'nav-bg'],
+  ['nav-fg', 'nav-hover'],
+  ['nav-fg', 'nav-selected'],
+  ['nav-fg-muted', 'nav-bg'],
+  ['text-link', 'bg-canvas'],
+  ['text-link', 'bg-surface'],
+  ['success-fg', 'success-bg'],
+  ['warning-fg', 'warning-bg'],
+  ['danger-fg', 'danger-bg'],
+  ['danger-fg', 'bg-surface'],
 ]
 
 const NON_TEXT: [string, string][] = [
-  ['border-strong', 'surface'],
-  ['border-strong', 'bg'],
-  ['focus', 'surface'],
-  ['focus', 'bg'],
-  ['accent', 'header-bg'],
-  ['chart-1', 'surface'],
-  ['chart-2', 'surface'],
-  ['chart-3', 'surface'],
-  ['heat-1', 'surface'],
+  ['border-strong', 'bg-canvas'],
+  ['border-strong', 'bg-surface'],
+  ['border-strong', 'bg-raised'],
+  ['focus-ring', 'bg-canvas'],
+  ['focus-ring', 'bg-surface'],
+  ['focus-ring', 'bg-raised'],
+  ['focus-ring-on-nav', 'nav-bg'],
+  ['nav-indicator', 'nav-bg'],
+  ['action-primary-bg', 'bg-surface'],
+  ['chart-1', 'chart-surface'],
+  ['chart-2', 'chart-surface'],
+  ['chart-3', 'chart-surface'],
+  ['heat-7', 'chart-surface'],
 ]
 
 describe.each([
@@ -92,14 +104,18 @@ describe.each([
 
 describe('brand colours', () => {
   it('are the exact colours of the Kahraman logo and site', () => {
-    expect(light['brand-gold']).toBe('#bb8f44') // KD-White.svg, the logo mark
-    expect(light['brand-white']).toBe('#ffffff') // KD-White.svg, the wordmark
-    expect(light['brand-green']).toBe('#1e4a23') // kahramandubai.com theme, behind the white logo
-    expect(light['brand-charcoal']).toBe('#12171b')
+    expect(light['kh-gold-500']).toBe('#bb8f44') // the logo mark
+    expect(light['kh-white']).toBe('#ffffff') // the logo wordmark
+    expect(light['kh-green-700']).toBe('#1e4a23') // their site, behind the white logo
+    expect(light['kh-charcoal']).toBe('#12171b')
+  })
+
+  it('brand gold is never text on light: gold text uses the darker ink', () => {
+    expect(contrast(light['kh-gold-500']!, light['bg-raised']!)).toBeLessThan(4.5)
+    expect(contrast(light['accent-gold-ink']!, light['bg-raised']!)).toBeGreaterThanOrEqual(4.5)
   })
 
   it('the dark theme in the media query matches the [data-theme=dark] one', () => {
-    const media = block(":root:not([data-theme='light'])")
-    expect(media).toEqual(block(":root[data-theme='dark']"))
+    expect(block('@dark-system')).toEqual(block('@dark'))
   })
 })

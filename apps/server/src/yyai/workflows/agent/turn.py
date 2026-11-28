@@ -41,7 +41,6 @@ class _Progress:
     # Set when quote_price said only staff can answer (a product with no price), and when the model handed over.
     handover_needed: HandoverReason | None = None
     handed_over: bool = False
-    internal: bool = False  # a staff test chat: records nothing real
 
 
 class _KeepUnknown(dict):
@@ -105,8 +104,8 @@ class AgentTurnWorkflow:
             client_name=self._client.name,
             currency=self._client.currency,
             auto_send=self._agent.auto_send,
+            internal=turn.internal,
         )
-        progress.internal = ctx.internal
         progress.presented = ctx.presented  # the tools append to this list; our code reads it after the reply
         history = await self._conversations.history(turn.conversation_id, self._agent.history_messages)
         messages = [ChatMessage(role="system", content=self._system_prompt())]
@@ -197,12 +196,7 @@ class AgentTurnWorkflow:
         The reply still goes out if this fails: a missing handover row must not cost the customer their answer.
         """
         reason = progress.handover_needed
-        if (
-            reason is None
-            or progress.handed_over
-            or self._requests is None
-            or progress.internal
-        ):
+        if reason is None or progress.handed_over or self._requests is None or turn.internal:
             return
         try:
             record = await self._requests.hand_over(

@@ -61,7 +61,7 @@ class HandoverArgs(BaseModel):
 
 def build_request_tools(catalogue: CatalogueService, requests: RequestService) -> list[Tool]:
     async def create_quote_request(ctx: RunContext, args: CreateQuoteRequestArgs) -> dict[str, Any]:
-        if ctx.internal:
+        if ctx.internal:  # staff test chats (the Assistant page): nothing they request is real
             return dict(TEST_ONLY)
         item = await catalogue.get(args.code)
         if item is None:
@@ -95,7 +95,7 @@ def build_request_tools(catalogue: CatalogueService, requests: RequestService) -
         }
 
     async def handover_to_staff(ctx: RunContext, args: HandoverArgs) -> dict[str, Any]:
-        if ctx.internal:
+        if ctx.internal:  # staff test chats (the Assistant page): nothing they request is real
             return dict(TEST_ONLY)
         record = await requests.hand_over(
             conversation_id=ctx.conversation_id, turn_id=ctx.turn_id, reason=args.reason, summary=args.summary
