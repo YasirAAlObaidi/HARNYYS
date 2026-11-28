@@ -1,11 +1,14 @@
-import { type FormEvent, type KeyboardEvent, useState } from 'react'
+import { ArrowUp, Check, Copy, Sparkles } from 'lucide-react'
+import { type FormEvent, type KeyboardEvent, useRef, useState } from 'react'
 
 import { useAssistant, useSendToAssistant } from '../api/queries'
 import type { TranscriptMessage } from '../api/types'
-import { SendIcon } from '../components/icons'
-import { MessageBubble } from '../components/MessageBubble'
 import { useI18n } from '../i18n/context'
+import type { MessageKey } from '../i18n/messages'
+import { textLang } from '../lib/text'
 import { useStickToBottom } from '../lib/useStickToBottom'
+
+const SUGGESTIONS: MessageKey[] = ['assistant.suggest1', 'assistant.suggest2', 'assistant.suggest3', 'assistant.suggest4']
 
 function newClientId(): string {
   try {
@@ -16,8 +19,8 @@ function newClientId(): string {
 }
 
 /**
- * Page 2: a member of staff chats with the same AI customers reach (same prompt, tools and product table).
- * The chat is internal: the server keeps it off the Chats page and out of Insights.
+ * Page 2: a member of staff chats with the same AI customers reach (same prompt, tools and product table),
+ * in one calm column like ChatGPT. The chat is internal: the server keeps it off Chats and out of Insights.
  */
 export function AssistantPage() {
   const { t } = useI18n()
@@ -31,34 +34,26 @@ export function AssistantPage() {
   const waiting = Boolean(history.data?.pending) || send.isPending
   const last = messages.at(-1)
   const noReply = !waiting && last?.author === 'customer'
-  const { ref, onScroll } = useStickToBottom<HTMLOListElement>(messages.length + (sending ? 1 : 0) + (waiting ? 1 : 0), 'assistant')
+  const empty = !history.isPending && messages.length === 0 && !sending
+  const { ref, onScroll } = useStickToBottom<HTMLDivElement>(messages.length + (sending ? 1 : 0) + (waiting ? 1 : 0), 'assistant')
 
-  function submit(event?: FormEvent) {
-    event?.preventDefault()
-    const value = text.trim()
-    if (!value || send.isPending) return
+  function ask(value: string) {
+    const question = value.trim()
+    if (!question || send.isPending) return
     setText('')
     setSendFailed(false)
     send.mutate(
-      { text: value, client_id: newClientId() },
+      { text: question, client_id: newClientId() },
       {
         onError: () => {
-          setText(value)
+          setText(question)
           setSendFailed(true)
         },
       },
     )
   }
 
-  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    // Enter sends; Shift+Enter adds a line. While an Arabic (or any) input method is composing, Enter is its own.
-    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-      event.preventDefault()
-      submit()
-    }
-  }
-
-  // The message just sent, shown at once while the server saves it.
+  // The question just sent, shown at once while the server saves it.
   const optimistic: TranscriptMessage | null = sending
     ? {
         id: -1,
@@ -71,77 +66,180 @@ export function AssistantPage() {
       }
     : null
 
+  const composer = (
+    <Composer value={text} onChange={setText} onSend={ask} disabled={send.isPending} failed={sendFailed} />
+  )
+
   return (
-    <div className="assistant">
-      <header className="assistant__head">
+    <div className={`assistant${empty ? ' assistant--empty' : ''}`}>
+      <header className="assistant__head page-header">
         <h1 className="page-title">{t('assistant.title')}</h1>
-        <p className="muted">{t('assistant.intro')}</p>
-        <p className="notice notice--internal">{t('assistant.internal')}</p>
+        <span className="chip">{t('assistant.internal')}</span>
       </header>
 
-      <ol className="bubbles assistant__messages" ref={ref} onScroll={onScroll} aria-live="polite" aria-relevant="additions">
-        {history.isPending ? (
-          <li className="muted pad">{t('loading')}</li>
-        ) : messages.length === 0 && !optimistic ? (
-          <li className="muted pad">{t('assistant.empty')}</li>
-        ) : null}
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            label={message.author === 'customer' ? t('author.you') : t('author.ai')}
-            tone={message.author === 'customer' ? 'staff' : 'ai'}
-            side={message.author === 'customer' ? 'end' : 'start'}
-          />
-        ))}
-        {optimistic && <MessageBubble message={optimistic} label={t('author.you')} tone="staff" side="end" />}
-        {waiting && (
-          <li className="bubble-row bubble-row--start">
-            <p className="typing" role="status">
-              <span className="typing__dots" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-              </span>
-              {t('assistant.thinking')}
-            </p>
-          </li>
-        )}
-        {noReply && messages.length > 0 && (
-          <li className="muted pad" role="status">
-            {t('assistant.noReply')}
-          </li>
-        )}
-      </ol>
+      {empty ? (
+        <div className="assistant__welcome">
+          <span className="ai-mark ai-mark--lg" aria-hidden="true">
+            <Sparkles size={20} strokeWidth={1.5} />
+          </span>
+          <h2 className="assistant__greeting display">{t('assistant.greeting')}</h2>
+          <p className="assistant__greeting-text">{t('assistant.greetingText')}</p>
+          {composer}
+          <ul className="suggestions">
+            {SUGGESTIONS.map((key) => (
+              <li key={key}>
+                <button type="button" className="suggestion" dir="auto" lang={textLang(t(key))} onClick={() => ask(t(key))}>
+                  {t(key)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <>
+          <div className="assistant__scroll" ref={ref} onScroll={onScroll}>
+            <ol className="turns" aria-live="polite" aria-relevant="additions">
+              {history.isPending && (
+                <li className="turn" aria-hidden="true">
+                  <span className="skeleton" style={{ inlineSize: '60%', blockSize: 16 }} />
+                </li>
+              )}
+              {messages.map((message) => (
+                <Turn key={message.id} message={message} />
+              ))}
+              {optimistic && <Turn message={optimistic} />}
+              {waiting && (
+                <li className="turn turn--ai">
+                  <span className="ai-mark" aria-hidden="true">
+                    <Sparkles size={14} strokeWidth={1.5} />
+                  </span>
+                  <p className="thinking" role="status">
+                    <span className="thinking__dots" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    {t('assistant.thinking')}
+                  </p>
+                </li>
+              )}
+              {noReply && messages.length > 0 && (
+                <li className="turn">
+                  <p className="banner banner--warning" role="status">
+                    {t('assistant.noReply')}
+                  </p>
+                </li>
+              )}
+            </ol>
+          </div>
+          <div className="assistant__dock">{composer}</div>
+        </>
+      )}
+    </div>
+  )
+}
 
-      <form className="composer" onSubmit={submit}>
-        {sendFailed && (
-          <p className="form-error" role="alert">
-            {t('assistant.sendFailed')}
+/** One turn: the staff question as a bubble at the inline end, the AI's answer as plain prose. */
+function Turn({ message }: { message: TranscriptMessage }) {
+  const { t } = useI18n()
+  const [copied, setCopied] = useState(false)
+  if (message.author === 'customer') {
+    return (
+      <li className="turn turn--user">
+        <article className="turn__question" aria-label={t('author.you')}>
+          <p dir="auto" lang={textLang(message.text)}>
+            {message.text}
           </p>
-        )}
-        <div className="composer__row">
-          <label className="visually-hidden" htmlFor="assistant-input">
-            {t('assistant.placeholder')}
-          </label>
-          <textarea
-            id="assistant-input"
-            className="composer__input"
-            dir="auto"
-            rows={2}
-            maxLength={2000}
-            placeholder={t('assistant.placeholder')}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={onKeyDown}
-          />
-          <button type="submit" className="button button--primary composer__send" disabled={!text.trim() || send.isPending}>
-            <SendIcon />
-            <span>{t('assistant.send')}</span>
+        </article>
+      </li>
+    )
+  }
+  return (
+    <li className="turn turn--ai">
+      <span className="ai-mark" aria-hidden="true">
+        <Sparkles size={14} strokeWidth={1.5} />
+      </span>
+      <article className="turn__answer" aria-label={t('author.ai')}>
+        <p dir="auto" lang={textLang(message.text)}>
+          {message.text}
+        </p>
+        <div className="turn__actions">
+          <button
+            type="button"
+            className="btn btn--ghost btn--icon turn__action"
+            aria-label={copied ? t('assistant.copied') : t('assistant.copy')}
+            title={copied ? t('assistant.copied') : t('assistant.copy')}
+            onClick={() => {
+              void navigator.clipboard?.writeText(message.text).then(() => setCopied(true))
+            }}
+          >
+            {copied ? <Check size={15} strokeWidth={1.5} /> : <Copy size={15} strokeWidth={1.5} />}
           </button>
         </div>
-        <p className="composer__hint muted">{t('assistant.hint')}</p>
-      </form>
-    </div>
+      </article>
+    </li>
+  )
+}
+
+interface ComposerProps {
+  value: string
+  onChange: (value: string) => void
+  onSend: (value: string) => void
+  disabled: boolean
+  failed: boolean
+}
+
+function Composer({ value, onChange, onSend, disabled, failed }: ComposerProps) {
+  const { t } = useI18n()
+  const area = useRef<HTMLTextAreaElement | null>(null)
+
+  function submit(event?: FormEvent) {
+    event?.preventDefault()
+    onSend(value)
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    // Enter sends; Shift+Enter adds a line. While an input method is composing (Arabic too), Enter is its own.
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault()
+      submit()
+    }
+  }
+
+  return (
+    <form className="composer" onSubmit={submit}>
+      {failed && (
+        <p className="banner banner--danger" role="alert">
+          {t('assistant.sendFailed')}
+        </p>
+      )}
+      <div className="composer__box" onClick={() => area.current?.focus()}>
+        <label className="visually-hidden" htmlFor="assistant-input">
+          {t('assistant.placeholder')}
+        </label>
+        <textarea
+          ref={area}
+          id="assistant-input"
+          className="composer__input"
+          dir="auto"
+          rows={1}
+          maxLength={2000}
+          placeholder={t('assistant.placeholder')}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={onKeyDown}
+        />
+        <button
+          type="submit"
+          className="composer__send"
+          aria-label={t('assistant.send')}
+          title={`${t('assistant.send')} · ${t('assistant.keys')}`}
+          disabled={!value.trim() || disabled}
+        >
+          <ArrowUp size={18} strokeWidth={2} aria-hidden="true" />
+        </button>
+      </div>
+      <p className="composer__hint">{t('assistant.hint')}</p>
+    </form>
   )
 }

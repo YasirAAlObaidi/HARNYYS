@@ -1,1 +1,309 @@
-/* assistant page: redesign in progress. */
+/* Assistant: one calm 720px column. Staff questions are bubbles at the inline end; answers are prose. */
+
+.assistant {
+  display: flex;
+  flex-direction: column;
+  block-size: 100dvh;
+  min-block-size: 0;
+}
+
+.assistant__head {
+  inline-size: 100%;
+  max-inline-size: 760px;
+  margin-inline: auto;
+  padding-inline: var(--space-5);
+}
+
+.assistant__scroll {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+}
+
+.turns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-inline-size: 720px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+  list-style: none;
+}
+
+.turn {
+  display: flex;
+  gap: var(--space-3);
+  animation: rise-in var(--dur-base) var(--ease-enter);
+}
+
+.turn--user {
+  justify-content: flex-end;
+}
+
+.turn__question {
+  max-inline-size: 80%;
+  padding: 10px var(--space-4);
+  border-radius: 18px;
+  border-end-end-radius: var(--radius-bubble-tail);
+  background: var(--bubble-out-bg);
+  font-size: var(--text-md);
+  line-height: var(--lh-md);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ai-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border: 1px solid var(--accent-gold-line);
+  border-radius: var(--radius-full);
+  background: var(--accent-gold-subtle);
+  color: var(--accent-gold-ink);
+}
+
+.ai-mark--lg {
+  inline-size: 44px;
+  block-size: 44px;
+}
+
+.turn__answer {
+  flex: 1;
+  min-inline-size: 0;
+  padding-block-start: 2px;
+  font-size: var(--text-md);
+  line-height: var(--lh-md);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.turn__actions {
+  display: flex;
+  gap: var(--space-1);
+  margin-block-start: var(--space-1);
+  margin-inline-start: calc(var(--space-2) * -1);
+}
+
+.turn__action {
+  min-block-size: 28px;
+  inline-size: 28px;
+  min-inline-size: 28px;
+  opacity: 0.6;
+}
+
+.turn__action:hover,
+.turn__action:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .turn__action {
+    opacity: 1;
+  }
+}
+
+.thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block-start: 4px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.thinking__dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.thinking__dots span {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  animation: pulse 1.2s infinite ease-in-out;
+}
+
+.thinking__dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.thinking__dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+
+  40% {
+    opacity: 1;
+  }
+}
+
+/* The composer, docked at the bottom (or under the greeting when the chat is empty). */
+.assistant__dock {
+  padding: 0 var(--space-5) var(--space-4);
+  background: linear-gradient(to bottom, transparent, var(--bg-canvas) 30%);
+}
+
+.composer {
+  display: grid;
+  gap: var(--space-2);
+  inline-size: 100%;
+  max-inline-size: 720px;
+  margin-inline: auto;
+}
+
+.composer__box {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  padding-inline-start: var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-2xl);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-sm);
+  cursor: text;
+  transition: border-color var(--dur-instant) ease-out;
+}
+
+.composer__box:focus-within {
+  border-color: var(--focus-ring);
+}
+
+.composer__input {
+  flex: 1;
+  min-block-size: 36px;
+  max-block-size: calc(var(--lh-md) * 8);
+  padding-block: 6px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  line-height: var(--lh-md);
+  resize: none;
+  field-sizing: content;
+}
+
+.composer__input::placeholder {
+  color: var(--text-muted);
+}
+
+.composer__send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+  transition: background var(--dur-instant) ease-out, opacity var(--dur-instant) ease-out;
+}
+
+.composer__send:hover:not(:disabled) {
+  background: var(--action-primary-hover);
+}
+
+.composer__send:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.composer__hint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--lh-xs);
+  text-align: center;
+}
+
+/* Empty: the greeting sits a little above the middle, with the composer and four suggestions. */
+.assistant__welcome {
+  display: grid;
+  flex: 1;
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-4);
+  inline-size: 100%;
+  max-inline-size: 760px;
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-5) 12vh;
+  text-align: center;
+}
+
+.assistant__greeting {
+  font-size: var(--text-2xl);
+  line-height: var(--lh-2xl);
+}
+
+.assistant__greeting-text {
+  max-inline-size: 520px;
+  margin-block-end: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--lh-sm);
+}
+
+.suggestions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  inline-size: 100%;
+  max-inline-size: 720px;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestion {
+  inline-size: 100%;
+  min-block-size: 56px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--lh-sm);
+  text-align: start;
+  transition: background var(--dur-instant) ease-out, border-color var(--dur-instant) ease-out;
+}
+
+.suggestion:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+@media (max-width: 767px) {
+  .assistant {
+    block-size: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom));
+  }
+
+  .assistant__head .chip {
+    white-space: normal;
+  }
+
+  .suggestions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assistant__welcome {
+    padding-block-end: var(--space-6);
+  }
+
+  .turns,
+  .assistant__dock,
+  .assistant__head {
+    padding-inline: var(--space-4);
+  }
+}

@@ -1,59 +1,84 @@
+import { Check, CircleAlert, Clock, Mic, Paperclip, Sparkles } from 'lucide-react'
+
 import type { Author, TranscriptMessage } from '../api/types'
 import { useI18n } from '../i18n/context'
 import type { MessageKey } from '../i18n/messages'
-import { MicIcon, PaperclipIcon } from './icons'
+import { MEDIA_PLACEHOLDER, textLang } from '../lib/text'
 
 const MEDIA_KINDS = ['audio', 'image', 'video', 'document', 'sticker'] as const
-const PLACEHOLDER = /^\[[a-z ]+(: [a-z_]+)?\]$/ // what the WhatsApp handler stores for media without a caption
+const ICON = { size: 14, strokeWidth: 1.5, 'aria-hidden': true } as const
 
 function mediaLabel(kind: string): MessageKey {
   return (MEDIA_KINDS as readonly string[]).includes(kind) ? (`media.${kind}` as MessageKey) : 'media.other'
 }
 
-function deliveryLabel(delivery: string): MessageKey | null {
-  const known = ['pending', 'sending', 'sent', 'failed', 'awaiting_approval']
-  return known.includes(delivery) ? (`delivery.${delivery}` as MessageKey) : null
-}
-
 export interface BubbleProps {
   message: TranscriptMessage
-  /** Who wrote it, as shown above the text. */
+  /** Who wrote it: the accessible name of the bubble, and shown above the first bubble of a run. */
   label: string
-  /** Which side of the column it sits on: "end" is the right in English and the left in Arabic. */
+  /** "start" is the left in English and the right in Arabic. */
   side: 'start' | 'end'
-  /** Colours: customer, AI or staff. */
+  /** Colours: customer (plain), AI (amber tint), staff (green tint). */
   tone: Author
+  /** The first bubble of a run from one speaker: shows the label and the tail corner. */
+  first?: boolean
   showDelivery?: boolean
 }
 
-/** One chat message. Text keeps its own direction (dir="auto"), so Arabic and English both read right. */
-export function MessageBubble({ message, label, side, tone, showDelivery = false }: BubbleProps) {
+/** One chat message. Text keeps its own direction (dir="auto") and language, so mixed chats read right. */
+export function MessageBubble({ message, label, side, tone, first = true, showDelivery = false }: BubbleProps) {
   const { t, fmt } = useI18n()
-  const placeholderOnly = message.media.length > 0 && PLACEHOLDER.test(message.text.trim())
-  const delivery = showDelivery && message.delivery ? deliveryLabel(message.delivery) : null
+  const placeholderOnly = message.media.length > 0 && MEDIA_PLACEHOLDER.test(message.text.trim())
 
   return (
-    <li className={`bubble-row bubble-row--${side}`}>
+    <li className={`bubble-row bubble-row--${side}${first ? ' bubble-row--first' : ''}`}>
       <article className={`bubble bubble--${tone}`} aria-label={label}>
-        <header className="bubble__author">{label}</header>
+        {first && tone !== 'customer' && (
+          <header className="bubble__author">
+            {tone === 'ai' && <Sparkles {...ICON} />}
+            {label}
+          </header>
+        )}
         {message.media.map((kind, index) => (
           <p key={`${kind}-${index}`} className="bubble__media">
-            {kind === 'audio' ? <MicIcon width={16} height={16} /> : <PaperclipIcon width={16} height={16} />}
+            {kind === 'audio' ? <Mic {...ICON} /> : <Paperclip {...ICON} />}
             {t(mediaLabel(kind))}
           </p>
         ))}
         {!placeholderOnly && (
-          <p className="bubble__text" dir="auto">
+          <p className="bubble__text" dir="auto" lang={textLang(message.text)}>
             {message.text}
           </p>
         )}
         <footer className="bubble__meta">
-          <time dateTime={message.created_at}>{fmt.time(message.created_at)}</time>
-          {delivery && (
-            <span className={`bubble__delivery bubble__delivery--${message.delivery}`}>{t(delivery)}</span>
-          )}
+          <time dateTime={message.created_at} className="num">
+            {fmt.time(message.created_at)}
+          </time>
+          {showDelivery && message.delivery && <Delivery status={message.delivery} />}
         </footer>
       </article>
     </li>
+  )
+}
+
+/** Sent, sending, failed or waiting for approval: an icon plus the words (for screen readers, or shown). */
+function Delivery({ status }: { status: string }) {
+  const { t } = useI18n()
+  if (status === 'failed') {
+    return (
+      <span className="delivery delivery--failed">
+        <CircleAlert {...ICON} />
+        {t('delivery.failed')}
+      </span>
+    )
+  }
+  if (status === 'awaiting_approval') return <span className="chip chip--warning">{t('delivery.awaiting_approval')}</span>
+  const key = status === 'sent' ? 'delivery.sent' : status === 'pending' || status === 'sending' ? 'delivery.pending' : null
+  if (!key) return null
+  return (
+    <span className="delivery" title={t(key)}>
+      {status === 'sent' ? <Check {...ICON} /> : <Clock {...ICON} />}
+      <span className="visually-hidden">{t(key)}</span>
+    </span>
   )
 }

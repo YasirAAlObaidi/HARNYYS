@@ -40,14 +40,15 @@ describe('chats', () => {
     api()
     renderAt('/chats')
 
-    const list = await screen.findByRole('list')
+    const list = await screen.findByRole('region', { name: 'Chats' })
+    await within(list).findAllByRole('link')
     const items = within(list).getAllByRole('link')
     expect(items).toHaveLength(2)
     expect(items[0]).toHaveTextContent('أحمد')
     expect(items[0]).toHaveTextContent('AI: سعر قهوة كولومبيا 135 درهم')
     expect(items[0]).toHaveTextContent('WhatsApp')
     expect(items[1]).toHaveTextContent('+971559876543')
-    expect(screen.getByText('Choose a chat to read it.')).toBeInTheDocument()
+    expect(screen.getByText('Select a chat')).toBeInTheDocument()
   })
 
   it('searches on the server', async () => {
@@ -70,7 +71,7 @@ describe('chats', () => {
     renderAt('/chats/7')
 
     const customer = await screen.findAllByRole('article', { name: 'Customer' })
-    const ai = screen.getByRole('article', { name: 'AI' })
+    const ai = screen.getByRole('article', { name: 'Kahraman AI' })
     const staff = screen.getByRole('article', { name: 'Staff' })
     expect(customer[0]).toHaveClass('bubble--customer')
     expect(ai).toHaveClass('bubble--ai')
@@ -84,7 +85,7 @@ describe('chats', () => {
     expect(screen.queryByText('[audio]')).not.toBeInTheDocument()
     expect(within(ai).getByText('Sent')).toBeInTheDocument()
     expect(within(staff).getByText('Not delivered')).toBeInTheDocument()
-    expect(screen.getByText('Read-only. The AI answers this chat.')).toBeInTheDocument()
+    expect(screen.getByText('Read-only · the AI answers this chat in WhatsApp')).toBeInTheDocument()
     expect(screen.getByRole('toolbar', { name: 'Chat actions' })).toBeEmptyDOMElement() // room for v2 buttons
   })
 })
