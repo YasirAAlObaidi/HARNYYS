@@ -91,28 +91,45 @@ Both branches start from `244d477`. Merge `kahraman-web-app` into `kahraman-phas
 
 ## 4. Staff web app (branch `kahraman-web-app`)
 
-Built by a second Claude agent (Opus) to Yazan's spec: backend `3d12d11`, frontend `43d886a` (WIP).
+Built by a second Claude agent (Opus) to Yazan's spec. **Finished at `cffa29c`.**
 
-**Works at `43d886a`:**
-- **Login:** password plus TOTP, with throttling.
-- **Chats:** list, search and transcript, refreshed by polling.
-- **Assistant:** chat with the AI on the internal staff channel.
-- **Insights:**
-  - Three groups, with a period switch.
-  - "Updated 14:00 · next 15:00", and it refetches after the hour.
-  - "Not tracked yet" cards for metrics with no data source.
-- **Look and feel:**
-  - Kahraman colours: gold `#BB8F44` and white from the logo, green `#1E4A23` and charcoal `#12171B` from the site.
-  - Light and dark themes, checked for WCAG AA contrast.
-  - EN/AR with right-to-left layout, and a bundled IBM Plex Sans Arabic font.
-- **Checks:** web typecheck, lint, 98 vitest tests and `npm run build` pass. The server has 391 tests passing on that branch.
+**Checks (all pass):**
+- pytest: 392 tests, with `YYAI_TEST_DB_NAME=yyai_test_web`.
+- `lint-imports` and ruff.
+- Web: type-check, lint, 98 tests and `npm run build`.
+- The Caddy Docker build.
+- A real run against a stack, checked in headless Chrome.
 
-**Not done at that commit:**
-- The web Dockerfile, the Caddyfile and the `caddy` service in `deploy/compose.yaml`.
-- The web app section in `deploy/README.md`, `apps/web/README.md`, and Node in `setup-mac.sh`.
-- No check yet in a real browser or against a running stack.
+**Run it:**
+```
+docker compose -f deploy/compose.yaml up -d --build
+docker compose -f deploy/compose.yaml run --rm server yyai users add yasir --role admin
+```
+Then open http://localhost:8080. Other office PCs need HTTPS on Kahraman's subdomain. That is a marked placeholder until the subdomain and DNS provider are known.
 
-The agent was still working at handover. Newer commits may be on the branch.
+**Insights cards:**
+- **Live:**
+  - New contacts, customers who wrote, new vs returning, new contacts per day.
+  - Most-asked products and items not found.
+  - Arabic vs English, voice notes.
+  - The day × hour heatmap, chats per day, after-hours share.
+- **Estimate:** price vs stock questions (from keywords, and labelled as an estimate).
+- **"Not tracked yet":**
+  - Quote requests and quotes sent.
+  - Lost leads, the step where each was lost, and lost leads by day × hour.
+
+**Decisions waiting for Yazan:**
+- Viewers cannot use the Assistant.
+- Numbers show in Western digits in both languages.
+- Snapshots are kept for 30 days.
+- A session lasts 12 hours, or ends after 2 hours idle.
+- Working hours are a placeholder: Mon–Sat 09:00–18:00, Sunday closed.
+- 2FA secrets are stored in plain text, because encryption was deferred.
+
+**For the merge with `kahraman-phase-0`, on top of section 1:**
+- Insights reads `quote_price` and `product_details` results from the audit log, using `found`, `code`, `name_en`, `name_ar` and `match_score`. On phase-0, `quote_price` can now return `options` for several equal matches, with no top-level `code`, plus `clear_match`. Check that "most-asked products" and "items not found" handle that case. A compact per-call summary field would be sturdier than parsing results, which are cut at 2,000 characters.
+- Phase-0 adds the `quote_requests` table. Wire the "quote requests" card to it.
+- In `turn.py`, pass `internal=turn.internal` into `RunContext`, and use `ctx.internal` in `request_tools.py`.
 
 **Spec from Yazan:**
 - **Login:** username, password and TOTP 2FA, with roles admin, sales and viewer (ADR 0014).
