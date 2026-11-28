@@ -1,6 +1,7 @@
-import type { CSSProperties } from 'react'
+import { useState } from 'react'
 
 import { useI18n } from '../../i18n/context'
+import { textLang } from '../../lib/text'
 
 export interface Part {
   label: string
@@ -9,35 +10,34 @@ export interface Part {
   colour: string
 }
 
-/** One bar split into parts (new vs returning, Arabic vs English), with a legend. Mirrors in Arabic. */
-export function SplitBar({ parts }: { parts: Part[] }) {
+/** One 12px bar split into parts, with each part's share labelled above it. Mirrors in Arabic. */
+export function SplitBar({ parts, total: given }: { parts: Part[]; total?: number }) {
   const { fmt, t } = useI18n()
-  const total = parts.reduce((sum, part) => sum + part.value, 0)
+  const total = given ?? parts.reduce((sum, part) => sum + part.value, 0)
   if (total === 0) return <p className="muted">{t('stat.noData')}</p>
   return (
     <div className="split">
-      <div className="split__bar" role="img" aria-label={parts.map((p) => `${p.label} ${fmt.number(p.value)}`).join(', ')}>
+      <div className="split__labels">
+        {parts.map((part) => (
+          <span key={part.label} className="split__label">
+            <span className="split__swatch" style={{ background: `var(${part.colour})` }} aria-hidden="true" />
+            {part.label}
+            <strong className="num">{fmt.percent(part.value / total)}</strong>
+            <span className="muted num">({fmt.number(part.value)})</span>
+          </span>
+        ))}
+      </div>
+      <div className="split__bar" aria-hidden="true">
         {parts
           .filter((part) => part.value > 0)
           .map((part) => (
             <span
               key={part.label}
               className="split__part"
-              style={{ inlineSize: `${(part.value / total) * 100}%`, background: `var(${part.colour})` } as CSSProperties}
+              style={{ inlineSize: `${(part.value / total) * 100}%`, background: `var(${part.colour})` }}
             />
           ))}
       </div>
-      <ul className="legend">
-        {parts.map((part) => (
-          <li key={part.label} className="legend__item">
-            <span className="legend__swatch" style={{ background: `var(${part.colour})` }} aria-hidden="true" />
-            <span className="legend__label">{part.label}</span>
-            <span className="legend__value">
-              {fmt.number(part.value)} <span className="muted">({fmt.percent(part.value / total)})</span>
-            </span>
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }
@@ -46,40 +46,46 @@ export interface RankRow {
   key: string
   label: string
   value: number
-  detail?: string
   tag?: string
 }
 
-/** A short ranked list with a bar per row, longest first. Bars grow from the inline start. */
-export function RankList({ rows, valueLabel, head }: { rows: RankRow[]; valueLabel: string; head?: string }) {
+const SHOWN = 8
+
+/**
+ * A ranked list: a soft bar behind each label, as long as its count, and the count at the end. The first
+ * eight show; the rest behind "Show all". Bars grow from the inline start.
+ */
+export function RankList({ rows, head, valueLabel }: { rows: RankRow[]; head: string; valueLabel: string }) {
   const { fmt, t } = useI18n()
+  const [all, setAll] = useState(false)
   if (rows.length === 0) return <p className="muted">{t('stat.noData')}</p>
   const top = Math.max(...rows.map((row) => row.value), 1)
+  const shown = all ? rows : rows.slice(0, SHOWN)
   return (
-    <>
-    {head && (
+    <div className="rank">
       <p className="rank__head" aria-hidden="true">
         <span>{head}</span>
         <span>{valueLabel}</span>
       </p>
-    )}
-    <ol className="rank">
-      {rows.map((row) => (
-        <li key={row.key} className="rank__row">
-          <span className="rank__label">
-            <bdi>{row.label}</bdi>
-            {row.tag && <span className="chip chip--small">{row.tag}</span>}
-          </span>
-          <span className="rank__value" aria-label={`${valueLabel}: ${fmt.number(row.value)}`}>
-            {fmt.number(row.value)}
-            {row.detail && <span className="muted"> · {row.detail}</span>}
-          </span>
-          <span className="rank__track" aria-hidden="true">
-            <span className="rank__fill" style={{ inlineSize: `${(row.value / top) * 100}%` }} />
-          </span>
-        </li>
-      ))}
-    </ol>
-    </>
+      <ol className="rank__rows">
+        {shown.map((row) => (
+          <li key={row.key} className="rank__row">
+            <span className="rank__fill" style={{ inlineSize: `${(row.value / top) * 100}%` }} aria-hidden="true" />
+            <span className="rank__label" dir="auto" lang={textLang(row.label)}>
+              {row.label}
+            </span>
+            {row.tag && <span className="chip rank__tag">{row.tag}</span>}
+            <span className="rank__value num" aria-label={`${valueLabel}: ${fmt.number(row.value)}`}>
+              {fmt.number(row.value)}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {rows.length > SHOWN && (
+        <button type="button" className="btn btn--ghost rank__more" onClick={() => setAll((value) => !value)}>
+          {all ? t('list.showLess') : t('list.showAll', { n: fmt.number(rows.length) })}
+        </button>
+      )}
+    </div>
   )
 }

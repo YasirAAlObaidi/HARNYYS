@@ -84,9 +84,22 @@ export interface Heatmap {
   max: number
 }
 
+/** The KPI numbers of the period before (for the change on KPI cards). */
+export interface KeyNumbers {
+  first_day: string
+  last_day: string
+  new_contacts: number
+  active_contacts: number
+  messages: number
+  voice_notes: number
+  after_hours: number | null
+}
+
 export interface PeriodData {
   first_day: string
   last_day: string
+  /** null when stored data does not reach back to that earlier period: no comparison is shown. */
+  previous: KeyNumbers | null
   leads: {
     new_contacts: Metric<{ value: number }>
     active_contacts: Metric<{ value: number }>
