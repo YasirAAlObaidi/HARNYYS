@@ -1109,6 +1109,9 @@ a {
 }
 
 .heatmap__scroll {
+  /* position: relative keeps the screen-reader labels (absolutely positioned) inside this scroll box;
+     without it they escape it and make the whole page scroll sideways on a phone. */
+  position: relative;
   overflow-x: auto;
 }
 
