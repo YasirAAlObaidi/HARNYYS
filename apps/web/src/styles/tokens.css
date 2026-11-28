@@ -1,0 +1,366 @@
+/*
+ * Design tokens (apps/web/DESIGN.md explains the rules). Values come from the Kahraman visual-language brief.
+ * Brand: gold #BB8F44 and white #FFFFFF from the logo; green #1E4A23 and charcoal #12171B from their site.
+ * Gold is light through amber: decoration only on light surfaces (2.95:1 on white). Gold text on light uses
+ * --accent-gold-ink. Green is the house: the navigation rail and the one primary action per view.
+ *
+ * Light is the default. A chosen theme sets <html data-theme>. With no choice, the device setting decides
+ * (the media-query block repeats the dark values). tokens.test.ts checks every pair against WCAG AA and that
+ * the two dark blocks stay identical. Keep the @light / @dark / @dark-system markers: the test finds the
+ * blocks by them.
+ */
+
+/* @light */
+:root {
+  color-scheme: light;
+
+  --kh-gold-500: #bb8f44;
+  --kh-green-700: #1e4a23;
+  --kh-charcoal: #12171b;
+  --kh-white: #ffffff;
+
+  --bg-canvas: #f5f1ea;
+  --bg-surface: #fbf9f5;
+  --bg-raised: #ffffff;
+  --bg-overlay: #ffffff;
+  --bg-sunken: #efeae1;
+  --bg-hover: rgb(60 45 20 / 5%);
+  --bg-pressed: rgb(60 45 20 / 9%);
+  --bg-selected: #e6ede3;
+
+  --border-subtle: #e7e0d4;
+  --border-default: #dad1c3;
+  --border-strong: #8c8274;
+
+  --text-primary: #12171b;
+  --text-secondary: #4f4b45;
+  --text-muted: #6b655d;
+  --text-disabled: #a39a8d;
+  --text-inverse: #ffffff;
+  --text-link: #1e4a23;
+
+  --accent-gold: #bb8f44;
+  --accent-gold-ink: #7d5e24;
+  --accent-gold-subtle: #f5ecdc;
+  --accent-gold-line: #d9bc85;
+  --accent-green: #1e4a23;
+  --accent-green-subtle: #e6ede3;
+
+  --action-primary-bg: #1e4a23;
+  --action-primary-hover: #173a1b;
+  --action-primary-active: #122e16;
+  --action-primary-fg: #ffffff;
+  --action-secondary-bg: #ffffff;
+  --action-secondary-border: #8c8274;
+  --action-secondary-fg: #12171b;
+
+  --nav-bg: #1e4a23;
+  --nav-fg: #f2ede4;
+  --nav-fg-muted: #b8c6b4;
+  --nav-hover: #24542a;
+  --nav-selected: #2a5a30;
+  --nav-indicator: #bb8f44;
+  --nav-border: transparent;
+
+  --focus-ring: #7d5e24;
+  --focus-ring-on-nav: #d1aa66;
+
+  --success-fg: #24704a;
+  --success-bg: #e3f1e8;
+  --warning-fg: #94500f;
+  --warning-bg: #fbeedd;
+  --warning-border: #ebc9a0;
+  --danger-fg: #a33a2c;
+  --danger-bg: #fbe9e5;
+  --danger-border: #edc2ba;
+
+  --bubble-in-bg: #ffffff;
+  --bubble-out-bg: #e6ede3;
+  --bubble-note-bg: #f5ecdc;
+  --bubble-meta: #6b655d;
+
+  --chart-surface: #fbf9f5;
+  --chart-grid: #e7e0d4;
+  --chart-axis: #6b655d;
+  --chart-1: #2f743d;
+  --chart-2: #316ca5;
+  --chart-3: #b68028;
+  --heat-0: #efeae1;
+  --heat-1: #f5ead5;
+  --heat-2: #e8d1ac;
+  --heat-3: #dab883;
+  --heat-4: #c89852;
+  --heat-5: #ad7626;
+  --heat-6: #8b5a1a;
+  --heat-7: #684014;
+
+  --shadow-xs: 0 1px 1px rgb(40 30 15 / 5%);
+  --shadow-sm: 0 1px 2px rgb(40 30 15 / 6%), 0 2px 6px rgb(40 30 15 / 4%);
+  --shadow-md: 0 2px 4px rgb(40 30 15 / 5%), 0 8px 20px -4px rgb(40 30 15 / 10%);
+  --shadow-lg: 0 4px 8px rgb(40 30 15 / 6%), 0 24px 48px -12px rgb(40 30 15 / 18%);
+
+  --lattice-opacity: 0.1;
+}
+
+/* @dark */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-canvas: #12171b;
+  --bg-surface: #181d21;
+  --bg-raised: #1f2428;
+  --bg-overlay: #262b2f;
+  --bg-sunken: #0d1114;
+  --bg-hover: rgb(242 237 228 / 5%);
+  --bg-pressed: rgb(242 237 228 / 8%);
+  --bg-selected: #1c3322;
+
+  --border-subtle: #262b2e;
+  --border-default: #33383b;
+  --border-strong: #7a766f;
+
+  --text-primary: #f2ede4;
+  --text-secondary: #c3bbae;
+  --text-muted: #9a9286;
+  --text-disabled: #5f5b55;
+  --text-inverse: #12171b;
+  --text-link: #9cc79e;
+
+  --accent-gold: #bb8f44;
+  --accent-gold-ink: #d1aa66;
+  --accent-gold-subtle: #2a2418;
+  --accent-gold-line: #6b5530;
+  --accent-green: #357a3e;
+  --accent-green-subtle: #1c3322;
+
+  --action-primary-bg: #357a3e;
+  --action-primary-hover: #3a8143;
+  --action-primary-active: #2c6633;
+  --action-primary-fg: #ffffff;
+  --action-secondary-bg: #1f2428;
+  --action-secondary-border: #7a766f;
+  --action-secondary-fg: #f2ede4;
+
+  --nav-bg: #0f1813;
+  --nav-fg: #f2ede4;
+  --nav-fg-muted: #93a396;
+  --nav-hover: #16211b;
+  --nav-selected: #1b2820;
+  --nav-indicator: #bb8f44;
+  --nav-border: #262b2e;
+
+  --focus-ring: #d1aa66;
+  --focus-ring-on-nav: #d1aa66;
+
+  --success-fg: #6fc394;
+  --success-bg: #18291e;
+  --warning-fg: #e6a35c;
+  --warning-bg: #2e2216;
+  --warning-border: #5a4126;
+  --danger-fg: #ee8b7a;
+  --danger-bg: #321c19;
+  --danger-border: #5e312b;
+
+  --bubble-in-bg: #1f2428;
+  --bubble-out-bg: #1c3322;
+  --bubble-note-bg: #2a2418;
+  --bubble-meta: #c3bbae;
+
+  --chart-surface: #181d21;
+  --chart-grid: #262b2e;
+  --chart-axis: #9a9286;
+  --chart-1: #479356;
+  --chart-2: #4f8ac6;
+  --chart-3: #ba8a2e;
+  --heat-0: #0d1114;
+  --heat-1: #322618;
+  --heat-2: #50381b;
+  --heat-3: #6e4a19;
+  --heat-4: #8c611a;
+  --heat-5: #b2822d;
+  --heat-6: #cea861;
+  --heat-7: #e6ce9d;
+
+  --shadow-xs: 0 1px 1px rgb(0 0 0 / 30%);
+  --shadow-sm: inset 0 1px 0 rgb(255 255 255 / 3%), 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-md: inset 0 1px 0 rgb(255 255 255 / 4%), 0 8px 24px -4px rgb(0 0 0 / 50%);
+  --shadow-lg: inset 0 1px 0 rgb(255 255 255 / 5%), 0 24px 56px -12px rgb(0 0 0 / 65%);
+
+  --lattice-opacity: 0.07;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* @dark-system */
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg-canvas: #12171b;
+    --bg-surface: #181d21;
+    --bg-raised: #1f2428;
+    --bg-overlay: #262b2f;
+    --bg-sunken: #0d1114;
+    --bg-hover: rgb(242 237 228 / 5%);
+    --bg-pressed: rgb(242 237 228 / 8%);
+    --bg-selected: #1c3322;
+
+    --border-subtle: #262b2e;
+    --border-default: #33383b;
+    --border-strong: #7a766f;
+
+    --text-primary: #f2ede4;
+    --text-secondary: #c3bbae;
+    --text-muted: #9a9286;
+    --text-disabled: #5f5b55;
+    --text-inverse: #12171b;
+    --text-link: #9cc79e;
+
+    --accent-gold: #bb8f44;
+    --accent-gold-ink: #d1aa66;
+    --accent-gold-subtle: #2a2418;
+    --accent-gold-line: #6b5530;
+    --accent-green: #357a3e;
+    --accent-green-subtle: #1c3322;
+
+    --action-primary-bg: #357a3e;
+    --action-primary-hover: #3a8143;
+    --action-primary-active: #2c6633;
+    --action-primary-fg: #ffffff;
+    --action-secondary-bg: #1f2428;
+    --action-secondary-border: #7a766f;
+    --action-secondary-fg: #f2ede4;
+
+    --nav-bg: #0f1813;
+    --nav-fg: #f2ede4;
+    --nav-fg-muted: #93a396;
+    --nav-hover: #16211b;
+    --nav-selected: #1b2820;
+    --nav-indicator: #bb8f44;
+    --nav-border: #262b2e;
+
+    --focus-ring: #d1aa66;
+    --focus-ring-on-nav: #d1aa66;
+
+    --success-fg: #6fc394;
+    --success-bg: #18291e;
+    --warning-fg: #e6a35c;
+    --warning-bg: #2e2216;
+    --warning-border: #5a4126;
+    --danger-fg: #ee8b7a;
+    --danger-bg: #321c19;
+    --danger-border: #5e312b;
+
+    --bubble-in-bg: #1f2428;
+    --bubble-out-bg: #1c3322;
+    --bubble-note-bg: #2a2418;
+    --bubble-meta: #c3bbae;
+
+    --chart-surface: #181d21;
+    --chart-grid: #262b2e;
+    --chart-axis: #9a9286;
+    --chart-1: #479356;
+    --chart-2: #4f8ac6;
+    --chart-3: #ba8a2e;
+    --heat-0: #0d1114;
+    --heat-1: #322618;
+    --heat-2: #50381b;
+    --heat-3: #6e4a19;
+    --heat-4: #8c611a;
+    --heat-5: #b2822d;
+    --heat-6: #cea861;
+    --heat-7: #e6ce9d;
+
+    --shadow-xs: 0 1px 1px rgb(0 0 0 / 30%);
+    --shadow-sm: inset 0 1px 0 rgb(255 255 255 / 3%), 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-md: inset 0 1px 0 rgb(255 255 255 / 4%), 0 8px 24px -4px rgb(0 0 0 / 50%);
+    --shadow-lg: inset 0 1px 0 rgb(255 255 255 / 5%), 0 24px 56px -12px rgb(0 0 0 / 65%);
+
+    --lattice-opacity: 0.07;
+  }
+}
+
+/* Mode-independent: type, space, radii, motion, layout */
+:root {
+  --font-sans: 'Inter Variable', 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces Variable', 'Noto Naskh Arabic Variable', georgia, serif;
+
+  --text-2xs: 0.6875rem;
+  --lh-2xs: 1rem;
+  --text-xs: 0.75rem;
+  --lh-xs: 1rem;
+  --text-sm: 0.8125rem;
+  --lh-sm: 1.25rem;
+  --text-base: 0.875rem;
+  --lh-base: 1.375rem;
+  --text-md: 0.9375rem;
+  --lh-md: 1.5rem;
+  --text-lg: 1.125rem;
+  --lh-lg: 1.625rem;
+  --text-xl: 1.375rem;
+  --lh-xl: 1.875rem;
+  --text-2xl: 1.75rem;
+  --lh-2xl: 2.25rem;
+  --text-3xl: 2.25rem;
+  --lh-3xl: 2.5rem;
+  --tracking-tight: -0.02em;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 999px;
+  --radius-bubble-tail: 4px;
+
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --nav-width: 232px;
+  --nav-width-collapsed: 64px;
+  --tabbar-h: 56px;
+  --control-h-md: 36px;
+  --control-h-lg: 44px;
+}
+
+/* Arabic: a little larger, with more leading. No letter-spacing (it breaks the joins). */
+:lang(ar) {
+  --text-2xs: 0.75rem;
+  --lh-2xs: 1.25rem;
+  --text-xs: 0.8125rem;
+  --lh-xs: 1.25rem;
+  --text-sm: 0.875rem;
+  --lh-sm: 1.5rem;
+  --text-base: 0.9375rem;
+  --lh-base: 1.625rem;
+  --text-md: 1rem;
+  --lh-md: 1.75rem;
+  --text-lg: 1.1875rem;
+  --lh-lg: 2rem;
+  --text-xl: 1.5rem;
+  --lh-xl: 2.25rem;
+  --text-2xl: 1.875rem;
+  --lh-2xl: 2.75rem;
+  --tracking-tight: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0.01ms;
+    --dur-base: 0.01ms;
+    --dur-slow: 0.01ms;
+  }
+}

@@ -7,6 +7,18 @@ client:
   name: Kahraman
   currency: AED
   timezone: Asia/Dubai
+  # PLACEHOLDER: Kahraman has NOT confirmed these hours yet. Ask them, fix the days below, then set
+  # confirmed: true. Only the Insights page uses them (the share of messages that arrive after hours);
+  # while confirmed is false the page says the hours are not confirmed. Each day: "HH:MM-HH:MM" or closed.
+  working_hours:
+    confirmed: false
+    mon: "09:00-18:00"
+    tue: "09:00-18:00"
+    wed: "09:00-18:00"
+    thu: "09:00-18:00"
+    fri: "09:00-18:00"
+    sat: "09:00-18:00"
+    sun: closed
 
 database_url: postgresql+psycopg://yyai:${POSTGRES_PASSWORD}@postgres:5432/yyai
 
@@ -57,8 +69,8 @@ channels:
       verify_token: ${WHATSAPP_VERIFY_TOKEN}
       # Use the version shown in the Meta app dashboard (WhatsApp > API Setup). Meta retires old versions.
       graph_version: v23.0
-  webchat:
-    brand: webchat
+  # The staff Assistant page uses a built-in channel called "staff": do not add it here. The old open
+  # "webchat" test channel is gone; try the agent on the web app's Assistant page instead.
 
 agent:
   max_steps: 6

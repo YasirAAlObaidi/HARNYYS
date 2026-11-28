@@ -1,0 +1,8 @@
+# Keep the build context small; dependencies are installed fresh from the lockfile inside the image.
+node_modules
+dist
+.env
+.env.*
+*.log
+Dockerfile
+.dockerignore

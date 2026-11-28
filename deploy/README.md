@@ -1,6 +1,6 @@
 # Deploying yyai on one box
 
-This folder runs yyai with Docker Compose: Postgres, the migration job, the API server and the worker. An optional Cloudflare tunnel exposes the WhatsApp webhook. The model server runs outside Docker.
+This folder runs yyai with Docker Compose: Postgres, the migration job, the API server, the worker, and Caddy with the staff web app. Only Caddy is published. An optional Cloudflare tunnel exposes the WhatsApp webhook. The model server runs outside Docker.
 
 Needs Docker with the Compose v2 plugin (`docker compose version`). On a Mac, `scripts/setup-mac.sh` installs and configures both through Colima.
 
@@ -26,7 +26,7 @@ Run everything from the repo root.
    cp deploy/.env.example deploy/.env
    ```
 
-   `POSTGRES_PASSWORD` and `MODEL_API_KEY` need real values for the web chat test below. The four `WHATSAPP_*` lines must not be empty or the server will not start: until you set up WhatsApp, put any placeholder (for example `unset`) in them. Use only letters and digits in the password.
+   `POSTGRES_PASSWORD` and `MODEL_API_KEY` need real values. The four `WHATSAPP_*` lines must not be empty or the server will not start: until you set up WhatsApp, put any placeholder (for example `unset`) in them. Use only letters and digits in the password.
 
 2. Build and start.
 
@@ -34,30 +34,75 @@ Run everything from the repo root.
    docker compose -f deploy/compose.yaml up -d --build
    ```
 
-   Compose starts Postgres, runs the migrations once, then starts the server and the worker.
+   Compose starts Postgres, runs the migrations once, then starts the server, the worker and Caddy.
 
 3. Check it.
 
    ```
    docker compose -f deploy/compose.yaml ps
-   curl http://127.0.0.1:8000/api/health
+   curl http://localhost:8080/api/health
    ```
 
-   If something is not healthy, read the logs: `docker compose -f deploy/compose.yaml logs -f server worker migrate`.
+   If something is not healthy, read the logs: `docker compose -f deploy/compose.yaml logs -f server worker migrate caddy`.
+
+## Web app
+
+Staff use the web app to read the WhatsApp chats, ask the AI questions and see the numbers. Every page needs a login with a password and a 6-digit code from an authenticator app (two-factor login).
+
+### Create a user and set up two-factor login
+
+1. Create the user. Choose the role: `admin` (everything), `sales` (chats, assistant, insights, approving replies) or `viewer` (chats and insights only).
+
+   ```
+   docker compose -f deploy/compose.yaml run --rm server yyai users add yasir --role admin --display-name "Yasir"
+   ```
+
+   It asks for the password twice (at least 12 characters).
+
+2. It then prints a QR code, a setup key and a link, once. The person scans the QR code with an authenticator app on their phone (Google Authenticator, Microsoft Authenticator, 1Password or similar). If scanning is not possible, they type the setup key instead.
+
+3. They log in with the username, the password and the 6-digit code the app shows. Arabic digits work too.
+
+Other user commands:
+
+```
+docker compose -f deploy/compose.yaml run --rm server yyai users list
+docker compose -f deploy/compose.yaml run --rm server yyai users reset yasir     # new password and new QR code
+docker compose -f deploy/compose.yaml run --rm server yyai users disable yasir   # also logs them out
+docker compose -f deploy/compose.yaml run --rm server yyai users enable yasir
+```
+
+Five wrong tries for one username, or 20 from one address, lock logins for 15 minutes. A session ends 12 hours after login, or after 2 hours with no use. The limits are in `auth:` in `config.yaml` (see `AuthConfig` in `apps/server/src/yyai/core/config.py`).
+
+### Open it
+
+- **On this machine (testing):** open <http://localhost:8080>. The defaults publish it on this machine only, over plain HTTP. Chrome, Edge and Firefox accept the login cookie on `localhost`.
+- **From other office computers:** this needs HTTPS on the client's own subdomain, because the login cookie is only sent over HTTPS. See "HTTPS on the client's subdomain" below.
+
+The header has an EN/العربية switch and a light/dark switch (it follows the device until you choose). Both are remembered in the browser.
+
+### What each page shows
+
+- **Chats:** every customer chat the AI is handling, newest first: name or number, the last message, the time and the channel. Search finds a name, a number or any word in the chat. Open a chat to read it as bubbles: customer, AI and staff look different, and AI replies show if they were sent. The list and the open chat refresh every few seconds. It is read-only for now: pausing the AI, taking over and quote requests come later.
+- **Assistant:** chat with the same AI customers reach, with the same product table and rules. Use it to check a price, stock or how the AI answers. These chats are internal: they never show in Chats and never count in Insights. Each user has their own.
+- **Insights:** numbers for today, the last 7 days, the last 30 days or this month, in three groups: leads and sales, customer demand, and busy times. The worker computes them at the top of every hour (Dubai time), so the page shows "Updated 14:00 · next 15:00". Numbers the system cannot count yet (quote requests, quotes sent, lost leads) show "Not tracked yet", never 0. "Price vs stock questions" is an estimate from keywords and says so. The after-hours share uses the working hours in `config.yaml` (`client.working_hours`), which are a placeholder until Kahraman confirms them.
+
+### HTTPS on the client's subdomain
+
+**PLACEHOLDER: Kahraman's subdomain and DNS provider are not known yet.** The plan (docs/decisions/0014): a subdomain such as `kahraman.<our domain>` points at the box's private LAN address, and Let's Encrypt issues its certificate through a DNS-01 challenge, so nothing on the internet needs to reach the box. When the subdomain and provider are known:
+
+1. Build Caddy with the provider's DNS module: follow the PLACEHOLDER in `apps/web/Dockerfile`.
+2. In `deploy/.env`, set `YYAI_SITE` to the subdomain, `YYAI_TLS=dns`, `YYAI_DNS_PROVIDER` and `YYAI_DNS_API_TOKEN` (a token that may only edit that one DNS zone), and `YYAI_HTTPS_BIND=443` so the office network can reach it.
+3. Add a DNS A record for the subdomain with the box's LAN address.
+4. `docker compose -f deploy/compose.yaml up -d --build`, then open `https://<subdomain>`.
+
+For a quick test from another device before that, `YYAI_TLS=internal` with `YYAI_SITE=https://<box LAN address>` and `YYAI_HTTPS_BIND=<box LAN address>:8443` gives HTTPS with Caddy's own certificate. Browsers show a warning. Do not use it for real work.
 
 ## Try it without WhatsApp
 
-First load the products (see "Products, prices and stock" below). Then send a message through the web chat channel, wait a few seconds for the worker to run the agent turn, and read the conversation.
+First load the products (see "Products, prices and stock" below). Then create a user, log in to the web app and open **Assistant**. Ask a question, for example "How much is the Ethiopia Yirgacheffe 250g?" or "كم سعر قهوة كولومبيا 1 كجم؟". The worker answers in a few seconds.
 
-```
-curl -X POST http://127.0.0.1:8000/api/webhooks/webchat \
-  -H 'content-type: application/json' \
-  -d '{"user_id":"demo-1","name":"Demo","text":"How much is the Ethiopia Yirgacheffe 250g?"}'
-
-curl http://127.0.0.1:8000/api/conversations/1/messages
-```
-
-Conversation `1` is the first one created. Messages in Arabic work the same way.
+The old open `webchat` test webhook is gone: it needed no login. The webhook route now accepts only channels that check a signature (WhatsApp).
 
 ## Turn on WhatsApp
 
@@ -141,4 +186,4 @@ docker compose -f deploy/compose.yaml down        # stop, keep the database
 docker compose -f deploy/compose.yaml down -v     # stop and DELETE the database
 ```
 
-Port 8000 is bound to `127.0.0.1` and has no login yet. Do not publish it. Caddy and the web app, which will sit in front of it, come later.
+Only Caddy is published. The server, the worker and Postgres have no ports on the host. Every API route except health, the WhatsApp webhook and login needs a staff login.

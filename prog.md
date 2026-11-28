@@ -6,21 +6,21 @@ Status on 26 Nov 2026, written for Yasir, who takes over the build. Yazan made t
 
 ## 1. Where everything is
 
-| Branch | What | State |
-|---|---|---|
-| `kahraman-phase-0` | Products table and Excel, search fixes, prices only from the table, quote requests and handovers, approval rules, Docker dev setup, voice test bench | Pushed. 360 tests pass. |
-| `kahraman-web-app` | Staff web app: logins with 2FA, Chats, Assistant and Insights pages (built by a second Claude agent) | Backend done and pushed. Frontend status in section 4. |
-| `main` | The skeleton from before | Untouched |
+**Everything is on `main`** (merged 28 Nov 2026): the Phase 0 work and the staff web app, including the redesign. The old branches `kahraman-phase-0` and `kahraman-web-app` are kept for history only.
 
-The approved plan (Phase 0 demo, Phase 1 production, Phase 2 operations) is summarised here. Ask Yazan for the full plan file if you need it.
+**Merge checks:** 433 server tests, `lint-imports` (5 contracts), ruff, and the web type-check, lint, 138 tests and build all pass.
 
-### Merging the two branches
-Both branches start from `244d477`. Merge `kahraman-web-app` into `kahraman-phase-0` (or both into `main`), then:
-1. **Migrations.** The web app adds `0003_staff_web_app` (down_revision `0002`). Phase 0 adds `0004_quote_requests_handovers`, also with down_revision `0002` for now. **Set 0004's `down_revision` to `"0003"`** so Alembic has one head.
-2. **Staff test chats.** `workflows/agent/request_tools.py` uses `INTERNAL_CHANNELS = {"staff"}` so staff test chats save no quote requests or handovers. The web branch adds `RunContext.internal`. Switch the check to `ctx.internal`, and do the same in the turn's safety net (`turn.py`, `_safety_net`).
-3. **Expected conflicts** (both branches added to the same places): `core/types.py`, `core/config.py`, `bootstrap.py`, `tests/test_end_to_end.py`, `tests/conftest.py`, `deploy/clients/kahraman/config.yaml`, `pyproject.toml`, `uv.lock`. Keep both sides.
-4. The web branch locks every `/api` route behind a login and closes the open webchat webhook. The Phase 0 e2e tests that call `/api/conversations` without a session need a logged-in client after the merge.
-5. Run `uv run pytest -q`, `uv run lint-imports` and `uv run ruff check` in `apps/server`.
+**Done during the merge:**
+- Migration `0004` now follows `0003`.
+- Staff test chats use `RunContext.internal`, which is set from the conversation in `turn.py`, in both the request tools and the safety net.
+
+**If an old test database fails** with "staff_users does not exist", drop it: `docker exec yyai-dev-postgres-1 dropdb -U yyai yyai_test`.
+
+**Web app design: Yazan is NOT happy with it yet.** The redesign follows `apps/web/DESIGN.md` (Kahraman colours and vibe; quality modelled on Linear, Stripe and Front), but it needs more work. Ask Yazan what he wants changed before polishing further. Don't take inspiration from Kahraman's current website.
+
+**Still to wire up after the merge:**
+- Insights reads `quote_price` results from the audit log (`found`, `code`, `name_en`, `match_score`). `quote_price` can now return `options` for several equal matches, with no top-level `code`. Check that "most-asked products" and "items not found" handle that case.
+- Turn on the "quote requests" card from the new `quote_requests` table.
 
 ## 2. Decisions (from Yazan, binding)
 

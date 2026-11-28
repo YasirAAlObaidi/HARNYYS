@@ -15,6 +15,7 @@ from typing import Any
 
 from yyai.core.config import BrandConfig, Config, ModelRoleConfig
 from yyai.core.errors import ConfigError
+from yyai.core.types import STAFF_CHANNEL
 from yyai.handlers.integrations.file_catalogue.handler import FileCatalogue
 from yyai.handlers.integrations.webchat.handler import WebChat
 from yyai.handlers.integrations.whatsapp_cloud.handler import WhatsAppCloud
@@ -22,27 +23,34 @@ from yyai.handlers.model.openai_compat import OpenAICompatModel
 from yyai.handlers.persistence.catalogue import CatalogueStore
 from yyai.handlers.persistence.conversations import ConversationStore
 from yyai.handlers.persistence.db import Database
+from yyai.handlers.persistence.insights import InsightStore
 from yyai.handlers.persistence.products import ProductStore
 from yyai.handlers.persistence.requests import RequestStore
+from yyai.handlers.persistence.staff import StaffStore
 from yyai.handlers.ports import ChatModelPort, InventoryPort, MessagingPort
 from yyai.services.catalogue import CatalogueService
 from yyai.services.conversation import ConversationService
+from yyai.services.insights import InsightService
 from yyai.services.messaging import MessagingService
 from yyai.services.model import ModelService
 from yyai.services.pricing import PricingService
 from yyai.services.products import ProductService
 from yyai.services.requests import RequestService
+from yyai.services.staff import StaffService
 from yyai.workflows.agent.registry import ToolRegistry
 from yyai.workflows.agent.request_tools import build_request_tools
-from yyai.workflows.agent.tools import build_product_tools
+from yyai.workflows.agent.tools import WEAK_MATCH_SCORE, build_product_tools
 from yyai.workflows.agent.turn import AgentTurnWorkflow
+from yyai.workflows.assistant import AssistantWorkflow
 from yyai.workflows.catalogue_sync import CatalogueSyncWorkflow
 from yyai.workflows.container import Workflows
 from yyai.workflows.inbound import InboundWorkflow
+from yyai.workflows.insights import InsightsWorkflow
 from yyai.workflows.maintenance import MaintenanceWorkflow
 from yyai.workflows.outbox import OutboxWorkflow
 from yyai.workflows.products import ProductSheetWorkflow
 from yyai.workflows.queries import ConversationQueries
+from yyai.workflows.staff import StaffWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +111,10 @@ MODEL_PROVIDERS: dict[str, Callable[[str, ModelRoleConfig], ChatModelPort]] = {
     "openai_compat": _openai_compat,
 }
 
+# Brands whose webhooks carry a signature the handler checks. Only their channels may be reached through the
+# webhook route, which needs no staff login. A web chat channel has no signature, so it is never public.
+SIGNED_WEBHOOK_BRANDS = frozenset({"whatsapp_cloud"})
+
 
 def _choose[F](registry: Mapping[str, F], brand: str, where: str) -> F:
     try:
@@ -121,9 +133,18 @@ def _build_inventory(config: Config, products: ProductStore) -> InventoryPort:
 def _build_channels(config: Config) -> dict[str, MessagingPort]:
     channels: dict[str, MessagingPort] = {}
     for name, brand in config.channels.items():
+        if name == STAFF_CHANNEL:
+            raise ConfigError(f"channels.{name}: '{STAFF_CHANNEL}' is the built-in staff Assistant channel")
         factory = _choose(MESSAGING_BRANDS, brand.brand, f"channels.{name}")
         channels[name] = factory(name, brand.settings)
+    # The staff Assistant page talks on this channel. Replies need no delivery: the web app reads them from
+    # our database, which is what the web chat brand does.
+    channels[STAFF_CHANNEL] = WebChat(channel=STAFF_CHANNEL)
     return channels
+
+
+def _webhook_channels(config: Config) -> list[str]:
+    return [name for name, brand in config.channels.items() if brand.brand in SIGNED_WEBHOOK_BRANDS]
 
 
 def _build_providers(config: Config) -> dict[str, ChatModelPort]:
@@ -179,6 +200,13 @@ def build(config: Config) -> Workflows:
         vat_included=bool(config.inventory.settings.get("vat_included", True)),
     )
     model = ModelService(config.models, providers)
+    staff = StaffService(StaffStore(db), config.auth, issuer=f"{config.client.name} yyai")
+    insights = InsightService(
+        InsightStore(db),
+        timezone=config.client.timezone,
+        working_hours=config.client.working_hours,
+        weak_match_score=WEAK_MATCH_SCORE,
+    )
 
     requests = RequestService(RequestStore(db))
 
@@ -197,7 +225,7 @@ def build(config: Config) -> Workflows:
         ", ".join(spec.name for spec in registry.specs()),
     )
     return Workflows(
-        inbound=InboundWorkflow(messaging, conversations),
+        inbound=InboundWorkflow(messaging, conversations, _webhook_channels(config)),
         turns=AgentTurnWorkflow(
             conversations, model, registry, config.agent, config.client, requests=requests
         ),
@@ -206,5 +234,8 @@ def build(config: Config) -> Workflows:
         maintenance=MaintenanceWorkflow(conversations, config.worker.stale_after_s),
         queries=ConversationQueries(conversations),
         products=ProductSheetWorkflow(products, catalogue),
+        staff=StaffWorkflow(staff),
+        assistant=AssistantWorkflow(conversations),
+        insights=InsightsWorkflow(insights),
         closers=closers,
     )

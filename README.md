@@ -12,9 +12,10 @@ The script installs Docker through Colima, along with Docker Compose, Buildx and
 
 ```
 cd apps/server && uv run pytest -q && uv run lint-imports
+cd apps/web && npm run lint && npm test && npm run build
 ```
 
-To run the whole system in Docker, see `deploy/README.md`.
+To run the whole system in Docker, see `deploy/README.md`. The staff web app is in `apps/web` (see its README).
 
 ## How the docs are organised
 

@@ -21,7 +21,6 @@ from yyai.services.conversation import ConversationService
 from yyai.services.model import ModelService
 from yyai.services.requests import RequestService
 from yyai.workflows.agent.registry import ToolRegistry
-from yyai.workflows.agent.request_tools import INTERNAL_CHANNELS
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +97,7 @@ class AgentTurnWorkflow:
             client_name=self._client.name,
             currency=self._client.currency,
             auto_send=self._agent.auto_send,
+            internal=turn.internal,
         )
         history = await self._conversations.history(turn.conversation_id, self._agent.history_messages)
         messages = [ChatMessage(role="system", content=self._system_prompt())]
@@ -180,12 +180,7 @@ class AgentTurnWorkflow:
         The reply still goes out if this fails: a missing handover row must not cost the customer their answer.
         """
         reason = progress.handover_needed
-        if (
-            reason is None
-            or progress.handed_over
-            or self._requests is None
-            or turn.channel in INTERNAL_CHANNELS
-        ):
+        if reason is None or progress.handed_over or self._requests is None or turn.internal:
             return
         try:
             record = await self._requests.hand_over(

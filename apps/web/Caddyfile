@@ -1,0 +1,86 @@
+# Caddy: the only service published on the LAN (docs/decisions/0014). It serves the staff web app and sends
+# /api/* to the yyai server. Inside the container it listens on 8080 (HTTP) and 8443 (HTTPS) and runs as a
+# normal user; deploy/compose.yaml maps the host's ports to these.
+#
+# Two settings come from the environment (deploy/.env):
+#   YYAI_SITE  the address to answer on. Default "http://:8080": plain HTTP, for testing on this machine
+#              only (compose binds it to 127.0.0.1). On a client box: the client's subdomain.
+#   YYAI_TLS   none (default), internal or dns. Picks one of the tls_* blocks below.
+
+{
+	admin off
+	persist_config off
+	http_port 8080
+	https_port 8443
+	# The outside port is 443, not 8443, so a redirect from Caddy would point at the wrong port. Staff open
+	# the https:// address directly.
+	auto_https disable_redirects
+	servers {
+		# No HTTP/3: it would advertise UDP port 8443, which is not published.
+		protocols h1 h2
+	}
+}
+
+# Plain HTTP. Only for testing on this machine: http://localhost:8080
+(tls_none) {
+}
+
+# HTTPS with Caddy's own certificate authority. For a quick test from another device on the LAN before the
+# real subdomain exists. Browsers warn about the certificate. Not for real use (docs/decisions/0014).
+(tls_internal) {
+	tls internal
+}
+
+# =====================================================================================================
+# PLACEHOLDER: production HTTPS. Kahraman's subdomain and DNS provider are not known yet.
+# When they are:
+#   1. Build the image with the provider's Caddy DNS module (see the PLACEHOLDER in apps/web/Dockerfile).
+#   2. In deploy/.env set YYAI_SITE=<their subdomain>, YYAI_TLS=dns, YYAI_DNS_PROVIDER=<module name, for
+#      example cloudflare> and YYAI_DNS_API_TOKEN=<a token that may only edit that DNS zone>.
+#   3. Point the subdomain's DNS A record at the box's private LAN address.
+# Let's Encrypt then issues the certificate through a DNS-01 challenge: nothing needs to reach the box.
+# =====================================================================================================
+(tls_dns) {
+	tls {
+		dns {$YYAI_DNS_PROVIDER:not-configured} {$YYAI_DNS_API_TOKEN:not-configured}
+	}
+}
+
+{$YYAI_SITE:http://:8080} {
+	import tls_{$YYAI_TLS:none}
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		Cross-Origin-Opener-Policy same-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		-Server
+	}
+
+	# The API. The server sees the real client address in X-Forwarded-For (login throttling uses it).
+	handle /api/* {
+		reverse_proxy server:8000
+	}
+
+	# The web app. Paths that are not files get index.html, so the app's own routes work on reload.
+	handle {
+		root * /srv
+
+		# Hashed file names: safe to cache for a year.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+
+		# The page itself: never cached, and only our own origin may provide scripts, styles, fonts and
+		# images. No CDN, font service or analytics is allowed to load.
+		@page not path /assets/*
+		header @page {
+			Cache-Control "no-cache"
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		}
+
+		try_files {path} /index.html
+		file_server
+	}
+}
