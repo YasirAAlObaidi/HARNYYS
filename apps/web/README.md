@@ -34,13 +34,13 @@ npm run build      # type-checks, then writes dist/
 - `src/pages/`: the login page and the three pages.
 - `src/api/`: the fetch wrapper, the response types and the TanStack Query hooks. Polling intervals are at the top of `queries.ts`.
 - `src/i18n/messages.ts`: every text in English and Arabic.
-- `src/styles/tokens.css`: the colours, light and dark. `tokens.test.ts` checks them against WCAG AA.
-- `src/styles/global.css`: layout. It uses only logical properties (inline/block, start/end), so Arabic mirrors.
+- `src/styles/`: `tokens.css` (colours, type, spacing; light and dark; `tokens.test.ts` checks WCAG AA), `base.css`, `shell.css` and one file per page. Logical properties only, so Arabic mirrors.
+- `DESIGN.md`: the design rules and page anatomy. Read it before changing a screen.
 - `Caddyfile` and `Dockerfile`: the production image (`docker build -t yyai-web:dev apps/web`).
 
 ## Rules
 
-- **No outside requests.** The font (IBM Plex Sans Arabic) is bundled. No CDN, font service or analytics. The Caddyfile's Content-Security-Policy allows only our own origin.
+- **No outside requests.** Fonts (Inter, IBM Plex Sans Arabic, Fraunces, Noto Naskh Arabic) and icons (lucide-react) are bundled. No CDN, font service or analytics. The Caddyfile's Content-Security-Policy allows only our own origin.
 - **Honest numbers.** A metric the server cannot compute yet comes as `not_tracked`. The page shows "Not tracked yet", never a 0. An estimate is labelled as one.
 - **Arabic first-class.** The EN/AR switch sets `<html lang dir>`. Message text uses `dir="auto"`. Inputs accept Eastern Arabic digits.
 - **Pinned versions.** Every dependency has an exact version, and `package-lock.json` is committed.
@@ -48,13 +48,4 @@ npm run build      # type-checks, then writes dist/
 
 ## Brand
 
-The logo is Kahraman's own (`src/assets/kahraman-logo-white.svg`, from kahramandubai.com). The colours come from it and from their site:
-
-| Token | Hex | From |
-|---|---|---|
-| `--brand-gold` | `#BB8F44` | the logo mark |
-| `--brand-white` | `#FFFFFF` | the logo wordmark |
-| `--brand-green` | `#1E4A23` | their site: the dark band behind the white logo |
-| `--brand-charcoal` | `#12171B` | their site: dark text and backgrounds |
-
-Gold on white is only 2.95:1, so on light screens gold is decoration only. Gold text uses the darker `--accent-text` (`#7A5719`).
+The logo is Kahraman's own, from kahramandubai.com: `src/assets/kahraman-logo-white.svg` as published, and `kahraman-logo.svg`, the same drawing with a gold mark and a wordmark that takes the text colour. The brand colours are gold `#BB8F44` and white `#FFFFFF` (the logo), and green `#1E4A23` and charcoal `#12171B` (their site). How they are used is in `DESIGN.md`.

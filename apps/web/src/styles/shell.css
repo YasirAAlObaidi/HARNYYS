@@ -206,8 +206,8 @@
   }
 
   .sidebar__logo,
-  .nav-item__label,
-  .user-chip__text {
+  .sidebar .nav-item__label,
+  .sidebar .user-chip__text {
     display: none;
   }
 
