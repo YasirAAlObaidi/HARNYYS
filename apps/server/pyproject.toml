@@ -13,7 +13,12 @@ dependencies = [
     "httpx>=0.28",
     "pyyaml>=6.0",
     "tzdata>=2024.1",  # zoneinfo has no timezone database on slim images without it
+    "openpyxl>=3.1",
+    "defusedxml>=0.7",
 ]
+
+[project.scripts]
+yyai = "yyai.cli:main"
 
 [dependency-groups]
 dev = [
@@ -37,7 +42,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 markers = [
-    "db: needs the dev Postgres (127.0.0.1:55432); skipped cleanly when it is unreachable",
+    "db: needs the dev Postgres (127.0.0.1:55432, deploy/compose.dev.yaml); skipped cleanly when it is unreachable",
 ]
 
 [tool.ruff]
@@ -47,7 +52,7 @@ target-version = "py312"
 # ---------------------------------------------------------------------------
 # Layer rules (docs/decisions/0002, 0003). Run with: uv run lint-imports
 # Each layer may import only the layer directly below it. `core` is shared.
-# `yyai.bootstrap`, `yyai.main` and `yyai.worker` are the composition root and
+# `yyai.bootstrap`, `yyai.main`, `yyai.worker` and `yyai.cli` are the composition root and
 # are deliberately outside these contracts.
 # ---------------------------------------------------------------------------
 [tool.importlinter]
@@ -87,6 +92,8 @@ modules = [
     "yyai.services.messaging",
     "yyai.services.model",
     "yyai.services.pricing",
+    "yyai.services.products",
+    "yyai.services.requests",
 ]
 
 [[tool.importlinter.contracts]]

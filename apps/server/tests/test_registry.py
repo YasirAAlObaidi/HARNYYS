@@ -106,10 +106,8 @@ def call(name: str, arguments: dict[str, Any] | None = None, raw: str | None = N
 
 def test_specs_describe_every_tool_with_a_json_schema(registry: ToolRegistry) -> None:
     specs = {spec.name: spec for spec in registry.specs()}
-    assert set(specs) == {
-        "echo", "nothing", "slow", "big", "write_something", "send_something", "draft_something", "boom",
-        "erp_down", "quote",
-    }  # fmt: skip
+    # write_something, send_something and draft_something need confirmation by default, so they are not offered.
+    assert set(specs) == {"echo", "nothing", "slow", "big", "boom", "erp_down", "quote"}
     echo = specs["echo"]
     assert echo.description == "Echo text back"
     assert echo.parameters["type"] == "object"

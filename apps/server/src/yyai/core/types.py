@@ -88,6 +88,49 @@ class StockLevel(BaseModel):
     quantity: Decimal | None = None
 
 
+# --- Product table (the client's sheet) ---------------------------------------
+
+
+class ProductRecord(BaseModel):
+    """One product as the client's sheet gives it. The only source of prices and stock the agent may quote."""
+
+    code: str
+    name_en: str
+    name_ar: str | None = None
+    category: str | None = None
+    description: str | None = None
+    unit: str | None = None
+    price: Decimal | None = Field(None, description="None: no price, so the agent hands the chat to staff")
+    currency: str = "AED"
+    vat_included: bool = True
+    in_stock: bool | None = Field(None, description="None: stock unknown, so staff confirm it")
+    quantity: Decimal | None = None
+    url: str | None = None
+    image_url: str | None = None
+    attributes: dict[str, Any] = {}
+
+
+class SheetIssue(BaseModel):
+    """One problem in an uploaded sheet. `row` is the Excel row number the client sees, if it is about a row."""
+
+    row: int | None = None
+    column: str | None = None
+    message: str
+
+
+class ProductImportReport(BaseModel):
+    """What an import did, or would do. Nothing is changed while `issues` is not empty."""
+
+    source: str
+    rows: int = 0
+    added: list[str] = []
+    updated: list[str] = []
+    deactivated: list[str] = []
+    unchanged: int = 0
+    issues: list[SheetIssue] = []
+    applied: bool = False
+
+
 # --- Model ------------------------------------------------------------------
 
 
@@ -198,3 +241,38 @@ class RunContext(BaseModel):
     currency: str
     auto_send: bool
     presented: list[PresentedProduct] = Field(default_factory=list)
+
+
+# --- What the agent records for staff ------------------------------------------
+
+# Why a chat is handed to staff. The database table checks the same list.
+HandoverReason = Literal[
+    "missing_price", "unclear_item", "asked_for_human", "complaint", "large_order", "other"
+]
+HandoverSource = Literal["tool", "safety_net"]
+
+
+class QuoteRequestRecord(BaseModel):
+    """A customer asking for a formal quote. Staff send the quote; the agent never does."""
+
+    id: int
+    conversation_id: int
+    code: str
+    product_name: str
+    quantity: Decimal
+    unit: str | None
+    area: str | None
+    note: str | None
+    status: str
+    created: bool  # False when an open request for the same product was updated instead
+
+
+class HandoverRecord(BaseModel):
+    """A chat that staff must answer. At most one is open per chat."""
+
+    id: int
+    conversation_id: int
+    reason: HandoverReason
+    summary: str | None
+    source: HandoverSource
+    created: bool  # False when the chat already had an open handover

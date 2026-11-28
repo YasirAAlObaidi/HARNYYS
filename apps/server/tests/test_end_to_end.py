@@ -60,7 +60,8 @@ def write_config(
     model = raw["models"]["chat.default"]
     model.update(base_url="https://model.test/v1", api_key=MODEL_KEY, external=False, allow_external=False)
     model["params"] = {"temperature": 0.3, "max_tokens": 800}  # drops the OpenRouter-only routing block
-    raw["inventory"]["settings"]["path"] = str(catalogue_path)
+    # A file the test can rewrite mid-conversation, in place of the product table the demo config uses.
+    raw["inventory"] = {"brand": "file_catalogue", "settings": {"path": str(catalogue_path)}}
     raw["channels"]["whatsapp"]["settings"] = {
         "phone_number_id": PHONE_NUMBER_ID,
         "access_token": ACCESS_TOKEN,
@@ -247,6 +248,7 @@ async def test_whatsapp_question_to_priced_answer(make_env, mock_http: respx.Moc
     assert first_request["model"] == "qwen/qwen3.8-27b"
     assert {tool["function"]["name"] for tool in first_request["tools"]} == {
         "search_products", "quote_price", "product_details", "list_categories",
+        "create_quote_request", "handover_to_staff",  # set to auto in Kahraman's agent.approvals
     }  # fmt: skip
     system, *rest = first_request["messages"]
     assert system["role"] == "system"
@@ -264,9 +266,9 @@ async def test_whatsapp_question_to_priced_answer(make_env, mock_http: respx.Moc
     assert quote["found"] is True
     assert quote["code"] == "SAMPLE-002"
     assert quote["price"] == LIVE_PRICE  # from the inventory file, not the 135 in our copy
-    assert quote["price_source"] == "live"
+    assert quote["handover"] is False
     assert (quote["currency"], quote["vat_included"], quote["in_stock"]) == ("AED", True, True)
-    assert "note" not in quote  # no "live price not available" warning
+    assert "note" not in quote  # no missing-price or unknown-stock warning
 
     # 3. The reply is queued, then the outbox sends it through the Graph API.
     queued = env.one("SELECT status, text FROM outbox")
@@ -310,6 +312,72 @@ async def test_whatsapp_question_to_priced_answer(make_env, mock_http: respx.Moc
     assert [(c["external_user_id"], c["customer_name"]) for c in conversations] == [(CUSTOMER, CUSTOMER_NAME)]
     messages = (await env.http.get(f"/api/conversations/{conversations[0]['id']}/messages")).json()
     assert [(m["direction"], m["text"]) for m in messages] == [("in", QUESTION), ("out", FINAL_ANSWER)]
+
+
+def remove_the_price(env: Env, code: str = "SAMPLE-002") -> None:
+    """Empty one product's price in the inventory file, as an empty price cell in the client's sheet would."""
+    data = json.loads(env.catalogue_path.read_text(encoding="utf-8"))
+    next(item for item in data["items"] if item["code"] == code)["price"] = None
+    env.catalogue_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def handover_call(reason: str = "missing_price") -> dict[str, Any]:
+    arguments = {"reason": reason, "summary": "Customer wants the price of Colombia Supremo 1 kg."}
+    return {
+        "id": "call_handover_1",
+        "type": "function",
+        "function": {"name": "handover_to_staff", "arguments": json.dumps(arguments)},
+    }
+
+
+async def test_a_product_without_a_price_is_handed_over_even_if_the_model_forgets(
+    make_env, mock_http: respx.MockRouter
+) -> None:
+    env: Env = await make_env()
+    remove_the_price(env)
+    mock_http.post(MODEL_URL).mock(
+        side_effect=[
+            httpx.Response(200, json=completion(tool_calls=[quote_price_call()])),
+            httpx.Response(200, json=completion("سيتواصل معك أحد الزملاء بالسعر قريبًا.")),
+        ]
+    )
+    await env.post_whatsapp(whatsapp_body())
+    assert await env.workflows.turns.run_once() is True
+
+    audit = env.sql.execute("SELECT kind, name, data FROM audit_log ORDER BY id").fetchall()
+    quote = json.loads(next(row for row in audit if row["name"] == "quote_price")["data"]["result"])
+    assert (quote["price"], quote["handover"], quote["handover_reason"]) == (None, True, "missing_price")
+    assert "135" not in json.dumps(quote)  # the copy's old price never reaches the model
+
+    handover = env.one("SELECT reason, source, status, conversation_id FROM handovers")
+    assert (handover["reason"], handover["source"], handover["status"]) == (
+        "missing_price",
+        "safety_net",
+        "open",
+    )
+    assert (audit[-1]["kind"], audit[-1]["name"]) == ("safety_net", "handover")
+    assert env.one("SELECT status FROM outbox")["status"] == "pending"  # the customer still gets the reply
+
+
+async def test_when_the_model_hands_over_the_safety_net_adds_nothing(
+    make_env, mock_http: respx.MockRouter
+) -> None:
+    env: Env = await make_env()
+    remove_the_price(env)
+    mock_http.post(MODEL_URL).mock(
+        side_effect=[
+            httpx.Response(200, json=completion(tool_calls=[quote_price_call()])),
+            httpx.Response(200, json=completion(tool_calls=[handover_call()])),
+            httpx.Response(200, json=completion("سيتواصل معك أحد الزملاء بالسعر قريبًا.")),
+        ]
+    )
+    await env.post_whatsapp(whatsapp_body())
+    assert await env.workflows.turns.run_once() is True
+
+    handover = env.one("SELECT reason, source, summary FROM handovers")
+    assert (handover["reason"], handover["source"]) == ("missing_price", "tool")
+    assert handover["summary"] == "Customer wants the price of Colombia Supremo 1 kg."
+    assert env.count("audit_log", "kind = 'safety_net'") == 0
 
 
 async def test_a_second_message_after_the_reply_sees_the_whole_conversation(

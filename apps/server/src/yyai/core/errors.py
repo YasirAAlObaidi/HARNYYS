@@ -34,3 +34,7 @@ class WindowClosed(YyaiError):
 
 class NotFound(YyaiError):
     """A requested record does not exist."""
+
+
+class InvalidFile(YyaiError, ValueError):
+    """An uploaded file cannot be read at all (not a spreadsheet, corrupt, empty)."""

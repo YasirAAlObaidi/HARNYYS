@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -22,6 +22,16 @@ from yyai.core.types import RunContext, ToolCall, ToolSpec
 logger = logging.getLogger(__name__)
 
 Risk = Literal["read", "draft", "send", "write"]
+Approval = Literal["auto", "confirm"]
+
+# Each tool's approval rule, unless the client's config sets one by tool name (agent.approvals). Read tools run
+# on their own; anything that changes or sends something waits for a person (docs/decisions/0008).
+DEFAULT_APPROVAL: dict[Risk, Approval] = {
+    "read": "auto",
+    "draft": "confirm",
+    "write": "confirm",
+    "send": "confirm",
+}
 
 
 @dataclass
@@ -36,20 +46,33 @@ class Tool:
 
 
 class ToolRegistry:
-    def __init__(self) -> None:
+    def __init__(self, approvals: Mapping[str, Approval] | None = None) -> None:
         self._tools: dict[str, Tool] = {}
+        self._approvals: dict[str, Approval] = dict(approvals or {})
 
     def register(self, tool: Tool) -> None:
         if tool.name in self._tools:
             raise ConfigError(f"Tool '{tool.name}' is registered twice")
         self._tools[tool.name] = tool
 
+    def check_approvals(self) -> None:
+        """Fail at start-up on an approval rule for a tool that does not exist (a typo would silently do nothing)."""
+        unknown = sorted(set(self._approvals) - set(self._tools))
+        if unknown:
+            raise ConfigError(f"agent.approvals names unknown tools: {', '.join(unknown)}")
+
+    def approval(self, name: str) -> Approval:
+        tool = self._tools[name]
+        return self._approvals.get(name, DEFAULT_APPROVAL[tool.risk])
+
     def specs(self) -> list[ToolSpec]:
+        """The tools the model may call. A tool that needs confirmation is left out: confirming is not built yet."""
         return [
             ToolSpec(
                 name=tool.name, description=tool.description, parameters=tool.args_model.model_json_schema()
             )
             for tool in self._tools.values()
+            if self.approval(tool.name) == "auto"
         ]
 
     def validate(self, call: ToolCall) -> str | None:
@@ -62,8 +85,8 @@ class ToolRegistry:
             tool, problem, args = self._check(call)
             if problem or tool is None or args is None:
                 return _error_json(problem or "invalid call")
-            if tool.risk != "read":
-                # Confirmations are not built yet, so nothing that changes or sends anything may run.
+            if self.approval(tool.name) != "auto":
+                # Confirmations are not built yet, so a tool that needs one never runs.
                 return _error_json(f"tool '{tool.name}' needs confirmation, which is not available yet")
             result = await asyncio.wait_for(tool.fn(ctx, args), timeout=tool.timeout_s)
             return _to_json(result, tool.max_result_chars)

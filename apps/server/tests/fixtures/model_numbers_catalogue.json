@@ -1,0 +1,88 @@
+{
+  "_note": "Gene Cafe roasters copied from the Kahraman catalogue (2026-11-25): model numbers that look alike.",
+  "currency": "AED",
+  "vat_included": true,
+  "items": [
+    {
+      "code": "gene-cafe-cbr-301-coffee-roaster-white",
+      "name_en": "Gene Café CBR 301 – Coffee Roaster (White)",
+      "name_ar": "محمصة قهوة جين كافيه CBR 301 (أبيض)",
+      "category": "Coffee roasters",
+      "description": "Gene Café home roaster for up to 300 g per batch, with off-axis rotation and a transparent Pyrex chamber. Indirect hot air from 60 to 260 C, 1.5 kW heater.",
+      "price": 3500,
+      "in_stock": true
+    },
+    {
+      "code": "gene-cafe-cbr-301-coffee-roaster-black",
+      "name_en": "Gene Café CBR 301 – Coffee Roaster (Black)",
+      "name_ar": "محمصة قهوة جين كافيه CBR 301 (أسود)",
+      "category": "Coffee roasters",
+      "description": "Gene Café home roaster for up to 300 g per batch, with off-axis rotation and a transparent Pyrex chamber. Indirect hot air from 60 to 260 C, 1.5 kW heater.",
+      "price": 3500,
+      "in_stock": true
+    },
+    {
+      "code": "gene-cafe-cbc-101-coffee-bean-cooler",
+      "name_en": "Gene Cafe CBC-101 Coffee Bean Cooler",
+      "name_ar": "مبرّد حبوب القهوة جين كافيه CBC-101",
+      "category": "Roasting & quality equipment",
+      "description": "Gene Café CBC-101 bean cooler with a high-speed fan for quickly cooling freshly roasted beans, up to 250 g. 220 V, made in Korea.",
+      "price": 420,
+      "in_stock": true
+    },
+    {
+      "code": "gene-cafe-roaster-vr-p500-brown",
+      "name_en": "Gene Café Roaster VR-P500 (Brown)",
+      "name_ar": "محمصة قهوة جين كافيه VR-P500 (بني)",
+      "category": "Coffee roasters",
+      "description": "Gene Café roaster for 300-700 g batches (500 g recommended), with automatic, manual and profile modes and two heat sources. Off-axis vortex mixing.",
+      "price": 29000,
+      "in_stock": true
+    },
+    {
+      "code": "gene-cafe-roaster-vr-p500-white",
+      "name_en": "Gene Café Roaster VR-P500 (White)",
+      "name_ar": "محمصة قهوة جين كافيه VR-P500 (أبيض)",
+      "category": "Coffee roasters",
+      "description": "Gene Café roaster for 300-700 g batches (500 g recommended), with automatic, manual and profile modes and two heat sources. Off-axis vortex mixing.",
+      "price": 29000,
+      "in_stock": true
+    },
+    {
+      "code": "gene-cafe-roaster-cbr-1200-black",
+      "name_en": "Gene Cafe Roaster CBR – 1200 (Black)",
+      "name_ar": "محمصة قهوة جين كافيه CBR-1200 (أسود)",
+      "category": "Coffee roasters",
+      "description": "Gene Café CBR-1200 single-phase electric roaster for 100-1,000 g of green beans (900 g recommended), with automatic ejection and cooling. Pyrex chamber with off-axis rotation.",
+      "price": 15750,
+      "in_stock": true
+    },
+    {
+      "code": "gene-cafe-roaster-cbr-1200-red",
+      "name_en": "Gene Cafe Roaster CBR – 1200 (Red)",
+      "name_ar": "محمصة قهوة جين كافيه CBR-1200 (أحمر)",
+      "category": "Coffee roasters",
+      "description": "Gene Café CBR-1200 single-phase electric roaster for 100-1,000 g of green beans (900 g recommended), with automatic ejection and cooling. Pyrex chamber with off-axis rotation.",
+      "price": 15750,
+      "in_stock": true
+    },
+    {
+      "code": "gene-cafe-cbr-101-coffee-roasting-machine-250g-with-temperature-and-cooling-control-black",
+      "name_en": "Gene Cafe CBR-101 Coffee Roasting Machine 250g (Black)",
+      "name_ar": "ماكينة تحميص القهوة جين كافيه CBR-101 – 250 جم (أسود)",
+      "category": "Coffee roasters",
+      "description": "Gene Café CBR-101 home roaster for 50-250 g batches (200-250 g recommended), with a Pyrex glass chamber, off-axis rotation and a chaff collector. 1,300 W.",
+      "price": 1890,
+      "in_stock": true
+    },
+    {
+      "code": "gene-cafe-cbr-101-coffee-roasting-machine-250g-with-temperature-and-cooling-control-red",
+      "name_en": "Gene Cafe CBR-101 Coffee Roasting Machine 250g (Red)",
+      "name_ar": "ماكينة تحميص القهوة جين كافيه CBR-101 – 250 جم (أحمر)",
+      "category": "Coffee roasters",
+      "description": "Gene Café CBR-101 home roaster for 50-250 g batches (200-250 g recommended), with a Pyrex glass chamber, off-axis rotation and a chaff collector. 1,300 W.",
+      "price": 1890,
+      "in_stock": true
+    }
+  ]
+}

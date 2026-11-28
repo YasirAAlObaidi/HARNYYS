@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -75,6 +75,8 @@ class AgentConfig(BaseModel):
     fallback_reply: str | None = None
     require_tool_first_step: bool = True  # step 1 must call a tool (stops invented product details)
     max_images: int = 3  # product images sent after a reply; 0 turns them off
+    # Approval rule per tool name, overriding the default from its risk class (docs/decisions/0008).
+    approvals: dict[str, Literal["auto", "confirm"]] = {}
 
 
 class WorkerConfig(BaseModel):

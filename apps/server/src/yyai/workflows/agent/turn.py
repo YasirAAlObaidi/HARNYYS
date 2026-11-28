@@ -7,18 +7,22 @@ runs out of steps. Everything is written to the audit log as it happens.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any, get_args
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from yyai.core.config import AgentConfig, ClientConfig
 from yyai.core.errors import IntegrationError
-from yyai.core.types import ChatMessage, Direction, PresentedProduct, RunContext, TurnRecord
+from yyai.core.types import ChatMessage, Direction, HandoverReason, PresentedProduct, RunContext, TurnRecord
 from yyai.services.conversation import ConversationService
 from yyai.services.model import ModelService
+from yyai.services.requests import RequestService
 from yyai.workflows.agent.images import pick_images
 from yyai.workflows.agent.registry import ToolRegistry
+from yyai.workflows.agent.request_tools import INTERNAL_CHANNELS
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +39,9 @@ OUT_OF_STEPS_NOTE = (
 class _Progress:
     steps: int = 0
     presented: list[PresentedProduct] = field(default_factory=list)
+    # Set when quote_price said only staff can answer (a product with no price), and when the model handed over.
+    handover_needed: HandoverReason | None = None
+    handed_over: bool = False
 
 
 class _KeepUnknown(dict):
@@ -53,8 +60,11 @@ class AgentTurnWorkflow:
         agent: AgentConfig,
         client: ClientConfig,
         role: str = "chat.default",
+        *,
+        requests: RequestService | None = None,
     ) -> None:
         self._conversations = conversations
+        self._requests = requests
         self._model = model
         self._registry = registry
         self._agent = agent
@@ -69,6 +79,7 @@ class AgentTurnWorkflow:
         progress = _Progress()
         try:
             reply = await self._run(turn, progress)
+            await self._safety_net(turn, progress)
             await self._conversations.finish_turn(
                 turn.id,
                 turn.conversation_id,
@@ -142,6 +153,7 @@ class AgentTurnWorkflow:
                 messages.append(
                     ChatMessage(role="tool", content=result, tool_call_id=call.id, name=call.name)
                 )
+                _note_handover(progress, call.name, result)
 
         # Out of steps: ask once more, without tools, for an answer from what was found.
         progress.steps += 1
@@ -176,6 +188,35 @@ class AgentTurnWorkflow:
             now = datetime.now(UTC)
         return f"{now:%A} {now.date().isoformat()}"
 
+    # --- safety net ------------------------------------------------------
+
+    async def _safety_net(self, turn: TurnRecord, progress: _Progress) -> None:
+        """Hand over when a tool said only staff can answer but the model did not hand over itself.
+
+        The reply still goes out if this fails: a missing handover row must not cost the customer their answer.
+        """
+        reason = progress.handover_needed
+        if (
+            reason is None
+            or progress.handed_over
+            or self._requests is None
+            or turn.channel in INTERNAL_CHANNELS
+        ):
+            return
+        try:
+            record = await self._requests.hand_over(
+                conversation_id=turn.conversation_id,
+                turn_id=turn.id,
+                reason=reason,
+                summary="Opened by the system: a tool said only staff can answer this.",
+                source="safety_net",
+            )
+            await self._conversations.audit(
+                turn.id, "safety_net", "handover", {"reason": reason, "created": record.created}
+            )
+        except Exception:
+            logger.exception("Safety-net handover failed for turn %s", turn.id)
+
     # --- failure ---------------------------------------------------------
 
     async def _handle_failure(self, turn: TurnRecord, exc: Exception, steps: int) -> None:
@@ -194,6 +235,23 @@ class AgentTurnWorkflow:
                 await self._conversations.fail_turn(turn.id, f"{type(exc).__name__}: {exc}")
         except Exception:
             logger.exception("Could not record the failure of turn %s", turn.id)
+
+
+def _note_handover(progress: _Progress, tool: str, result: str) -> None:
+    outcome = _as_dict(result)
+    if tool == "quote_price" and outcome.get("handover") is True:
+        reason = outcome.get("handover_reason")
+        progress.handover_needed = reason if reason in get_args(HandoverReason) else "other"
+    elif tool == "handover_to_staff" and outcome.get("ok") is True and outcome.get("saved", True):
+        progress.handed_over = True
+
+
+def _as_dict(result: str) -> dict[str, Any]:
+    try:
+        value = json.loads(result)
+    except json.JSONDecodeError:  # a result cut short for the model is not JSON any more
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def _require_text(text: str | None) -> str:

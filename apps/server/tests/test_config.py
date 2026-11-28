@@ -88,7 +88,7 @@ async def _build_with(
     kahraman_dir: Path, tmp_path: Path, stale_after_s: float | None, caplog: pytest.LogCaptureFixture
 ) -> None:
     raw = yaml.safe_load((kahraman_dir / "config.yaml").read_text(encoding="utf-8"))
-    raw["inventory"]["settings"]["path"] = str(kahraman_dir / "catalogue.json")
+    raw["inventory"] = {"brand": "file_catalogue", "settings": {"path": str(kahraman_dir / "catalogue.json")}}
     if stale_after_s is not None:
         raw["worker"] = {"stale_after_s": stale_after_s}
     path = tmp_path / "config.yaml"
@@ -113,3 +113,37 @@ async def test_build_warns_when_stale_after_is_shorter_than_a_possible_turn(
     await _build_with(kahraman_dir, tmp_path, 300, caplog)
     assert "stale_after_s" in caplog.text
     assert "630" in caplog.text
+
+
+async def test_the_kahraman_config_builds_with_the_product_table(kahraman_dir: Path, demo_env: None) -> None:
+    config = load_config(kahraman_dir / "config.yaml")
+    assert config.inventory.brand == "sql_products"
+    assert config.agent.approvals == {"create_quote_request": "auto", "handover_to_staff": "auto"}
+    workflows = build(config)
+    await workflows.aclose()
+
+
+async def test_an_approval_rule_for_an_unknown_tool_stops_the_start(
+    kahraman_dir: Path, demo_env: None
+) -> None:
+    config = load_config(kahraman_dir / "config.yaml")
+    config.agent.approvals["create_quote_requests"] = "auto"  # a typo would otherwise silently do nothing
+    with pytest.raises(ConfigError, match="create_quote_requests"):
+        build(config)
+
+
+def test_the_kahraman_starter_sheet_has_no_problems(kahraman_dir: Path) -> None:
+    import asyncio
+
+    from yyai.services.products import ProductService
+
+    class NoProductsYet:
+        async def active_products(self) -> list:
+            return []
+
+    service = ProductService(NoProductsYet())  # type: ignore[arg-type]
+    data = (kahraman_dir / "products.xlsx").read_bytes()
+    report, records = asyncio.run(service.check(data, "products.xlsx"))
+    assert report.issues == []
+    assert len(records) == 190
+    assert sum(record.price is not None for record in records) == 109  # the rest: hand over to staff

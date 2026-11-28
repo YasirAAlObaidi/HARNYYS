@@ -1,15 +1,19 @@
 """The product tools the agent can call. All are read-only.
 
 The descriptions below are prompts: the model reads them to decide when and how
-to call each tool, so they say what to do and what never to do. Prices and stock
-always come from the pricing service (the ERP), never from the model's memory or
-from the catalogue copy.
+to call each tool, so they say what to do and what never to do.
+
+Prices and stock come only from the pricing service, which reads the client's product
+table (or ERP). The catalogue copy is used to find products, never for a price. A weak
+match gives no price, so the model asks which product is meant. A clear match with no
+price says `handover: true`, so the chat goes to staff instead of the model guessing.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -25,8 +29,44 @@ from yyai.workflows.agent.registry import Tool
 
 logger = logging.getLogger(__name__)
 
-# Below this catalogue match score, quote_price warns the model that the item may be the wrong product.
+# Below this catalogue match score, quote_price gives no price: the item may be a different product.
 WEAK_MATCH_SCORE = 0.5
+# A different product scoring within this much of the best one makes the question ambiguous ("Lebrew" matches
+# two LeBrew analysers equally well), so the customer is asked which one. Colours of one product do not count.
+TIE_MARGIN = 0.05
+
+# Product details whose name looks like a price are never shown to the model: only the price column is a price.
+_PRICE_LIKE = re.compile(r"price|cost|\baed\b|\bdhs?\b|سعر|اسعار|أسعار|تكلفة|درهم", re.IGNORECASE)
+
+NOT_FOUND_NOTE = (
+    "No product matched. Ask the customer once for the product name, brand or size. If it still is not "
+    "found, do not guess: call handover_to_staff with reason unclear_item."
+)
+UNCLEAR_NOTE = (
+    "Weak match: this may be a different product from the one the customer asked for, so no price is "
+    "given. Ask which product they mean, naming this one and other_matches. Never quote a price for it. "
+    "If it is still unclear after that, call handover_to_staff with reason unclear_item."
+)
+MISSING_PRICE_NOTE = (
+    "There is no price for this item. Do not state, estimate or recall any price. Call handover_to_staff "
+    "with reason missing_price, then tell the customer a colleague will reply with the price shortly."
+)
+AMBIGUOUS_NOTE = (
+    "Several different products match equally well. Ask the customer which one they mean, naming the options. "
+    "You may say an option's price only if it is not null, exactly as shown. Then call quote_price again with "
+    "the exact product name."
+)
+UNKNOWN_CODE_NOTE = "Unknown code. Only use codes returned by search_products or quote_price."
+CHOICE_NOTE = (
+    "The customer has not said which option they want. If this is a first, general question, give the product "
+    "name and the price (say 'from' when price_from is true) and do NOT list the options. Once the customer has "
+    "picked this product, list the options (label) and ask which one, then call quote_price again with the "
+    "product name and the chosen option."
+)
+UNKNOWN_STOCK_NOTE = (
+    "Stock is not known for this item. Never say it is in or out of stock. If the customer asks, say a "
+    "colleague will confirm."
+)
 
 
 class SearchProductsArgs(BaseModel):
@@ -64,65 +104,79 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
         results = []
         for group in groups:
             priced = await _priced_items(pricing, group.items)
-            summary = _summary(group, priced)
             _present(ctx, group, priced, specific=False)
             results.append(
                 {
                     # With options, `code` is the product's key: pass it to product_details to see the options.
-                    "code": group.items[0].code if not group.has_variants else group.base_key,
+                    "code": _code(group),
                     "name_en": group.name_en,
                     "name_ar": group.name_ar,
                     "category": group.category,
-                    **summary,
+                    **_summary(priced),
                     "has_variants": group.has_variants,
                 }
             )
         return results
 
     async def quote_price(ctx: RunContext, args: QuotePriceArgs) -> dict[str, Any]:
-        groups = await catalogue.search_products(args.query, 3)
+        groups = await catalogue.search_products(args.query, 8)
         if not groups:
-            return {"found": False}
-        group = groups[0]
-        match_score = group.score
-        others = [
-            {"code": g.items[0].code if not g.has_variants else g.base_key, "name_en": g.name_en}
-            for g in groups[1:]
-        ]
+            return {"found": False, "handover": False, "note": NOT_FOUND_NOTE}
+        group, score = groups[0], groups[0].score
+        others = [_short(g) for g in groups[1:3]]
+        if score < WEAK_MATCH_SCORE:
+            # The store keeps loose matches (score from 0.25) so that browsing works. For one quoted price a loose
+            # match is usually a different product that shares a word or a weight with what the customer asked for.
+            # No handover yet: the customer is asked which product they mean first.
+            return {
+                "found": True,
+                "code": _code(group),
+                "name_en": group.name_en,
+                "name_ar": group.name_ar,
+                "match_score": round(score, 2),
+                "clear_match": False,
+                "other_matches": others,
+                "handover": False,
+                "note": UNCLEAR_NOTE,
+            }
+        rivals = [g for g in groups[1:] if g.score >= max(score - TIE_MARGIN, WEAK_MATCH_SCORE)][:2]
+        if rivals:
+            options = []
+            for rival in [group, *rivals]:
+                priced = await _priced_items(pricing, rival.items)
+                options.append({"code": _code(rival), "name_en": rival.name_en, "name_ar": rival.name_ar, **_summary(priced)})
+            return {"found": True, "clear_match": False, "handover": False, "options": options, "note": AMBIGUOUS_NOTE}
         if group.has_variants:
             named = chosen_variants(group.items, args.query)
             if len(named) == 1:
-                return await _quote_item(ctx, pricing, group, named[0], match_score, others)
-            options = named or group.items
-            priced = await _priced_items(pricing, options)
-            result = {
+                return await _quote_item(ctx, pricing, group, named[0], score, others)
+            priced = await _priced_items(pricing, named or group.items)
+            result: dict[str, Any] = {
                 "found": True,
                 "needs_choice": True,
+                "clear_match": True,
                 "code": group.base_key,
                 "name_en": group.name_en,
                 "name_ar": group.name_ar,
-                **_summary(group, priced),
+                **_summary(priced),
                 "options": [_option(entry) for entry in priced],
-                "match_score": round(match_score, 2),
+                "match_score": round(score, 2),
                 "other_matches": others,
-                "note": (
-                    "The customer has not said which option they want. If this is a first, general question, "
-                    "give the product name and the price (say 'from' when price_from is true) and do NOT list "
-                    "the options. Once the customer has picked this product, list the options (label) and ask "
-                    "which one, then call quote_price again with the product name and the chosen option."
-                ),
+                "handover": False,
+                "note": CHOICE_NOTE,
             }
-            if match_score >= WEAK_MATCH_SCORE:
-                _present(ctx, group, priced, specific=True)
+            _present(ctx, group, priced, specific=True)
+            if all(entry.price is None for entry in priced):
+                return {**result, "handover": True, "handover_reason": "missing_price", "note": MISSING_PRICE_NOTE}
             return result
-        return await _quote_item(ctx, pricing, group, group.items[0], match_score, others)
+        return await _quote_item(ctx, pricing, group, group.items[0], score, others)
 
     async def product_details(ctx: RunContext, args: ProductDetailsArgs) -> dict[str, Any]:
         item = await catalogue.get(args.code)
         if item is None:
             group = await catalogue.group_by_key(args.code)
             if group is None:
-                return {"found": False}
+                return {"found": False, "note": UNKNOWN_CODE_NOTE}
             if group.has_variants:
                 return await _base_details(ctx, pricing, group)
             item = group.items[0]
@@ -130,23 +184,29 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
         priced = await _priced_items(pricing, [item])
         entry = priced[0]
         _present(ctx, group, priced, specific=True)
-        attributes = {k: v for k, v in item.attributes.items() if k not in _INTERNAL_ATTRIBUTES}
-        return {
+        result: dict[str, Any] = {
             "found": True,
             "code": item.code,
             "name_en": item.name_en,
             "name_ar": item.name_ar,
             "category": item.category,
             "description": item.description,
-            "attributes": attributes,
+            "attributes": _safe_attributes(item),
             "price": _num(entry.price),
-            "price_source": entry.source,
-            "currency": entry.currency,
-            "vat_included": entry.vat_included,
             "in_stock": entry.in_stock,
             "url": item.url,
             "image_url": item.image_url,
         }
+        notes = []
+        if entry.price is not None:
+            result.update(currency=entry.currency, vat_included=entry.vat_included)
+        else:
+            notes.append(MISSING_PRICE_NOTE)
+        if entry.in_stock is None:
+            notes.append(UNKNOWN_STOCK_NOTE)
+        if notes:
+            result["note"] = " ".join(notes)
+        return result
 
     async def list_categories(ctx: RunContext, args: NoArgs) -> list[dict[str, Any]]:
         return [{"category": name, "count": count} for name, count in await catalogue.categories()]
@@ -158,13 +218,14 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
                 "Search the product catalogue by name, type, brand or use, in English or Arabic. "
                 "Use it to browse or when the customer has not named one specific product "
                 "(for example 'how much is a coffee grinder?'). Returns up to `limit` PRODUCTS, one entry per "
-                "product, with price (the lowest option's price; price_from is true when the options cost "
-                "different amounts, so say 'from AED X'), in_stock and has_variants. In a general listing, "
-                "name each product once with its price. NEVER list or mention colours, sizes or other "
-                "options in a listing, even if you know them. If has_variants is true, the options are "
-                "offered only AFTER the customer has picked that product: then call product_details with "
-                "its code to get them. An empty list means nothing matched: try simpler words or the other "
-                "language before telling the customer we do not have it."
+                "product, with the table price (the lowest option's price; price_from is true when the options "
+                "cost different amounts, so say 'from AED X'; price null means there is no price you may give), "
+                "in_stock and has_variants. In a general listing, name each product once. NEVER list or mention "
+                "colours, sizes or other options in a listing, even if you know them. If has_variants is true, "
+                "the options are offered only AFTER the customer has picked that product: then call "
+                "product_details with its code to get them. For a firm price on one product call quote_price. "
+                "An empty list means nothing matched: try simpler words or the other language before telling "
+                "the customer we do not have it."
             ),
             args_model=SearchProductsArgs,
             risk="read",
@@ -174,17 +235,14 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
             name="quote_price",
             description=(
                 "Get the current price and stock status of ONE product the customer asks about. "
-                "Pass the customer's own words, in English or Arabic, for example '20 litre water "
-                "bottle', and include the option they chose (colour, size) when they named one. ALWAYS call "
-                "this before stating the price of a specific product or whether it is in stock. Never guess, "
+                "Pass the customer's own words, in English or Arabic, for example 'Ethiopia "
+                "Yirgacheffe 1 kg', and include the option they chose (colour, size) when they named one. "
+                "ALWAYS call this before stating any price or whether something is in stock. Never guess, "
                 "estimate or invent a price, and never reuse a price from earlier in the conversation. If "
-                "found is false, say you could not find that product and ask for more detail. If the words "
-                "were vague and other_matches is not empty, mention those alternatives or ask which one "
-                "they mean. If needs_choice is true the product comes in options and the customer has not "
-                "chosen: follow the note in the result (do not list options in a general listing; once they "
-                "picked the product, list the options and ask which one). vat_included says whether VAT is "
-                "already in the price. If price_source is not 'live', tell the customer staff will confirm "
-                "the price."
+                "handover is true there is no price you may give: follow the note, and never state a price "
+                "for that product. If needs_choice is true the product comes in options and the customer has "
+                "not chosen: follow the note in the result. vat_included says whether VAT is already in the "
+                "price. in_stock null means stock is not known."
             ),
             args_model=QuotePriceArgs,
             risk="read",
@@ -193,12 +251,13 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
         Tool(
             name="product_details",
             description=(
-                "Get the full details of one product by its code: description, category, specifications, "
-                "link, current price and stock. Use it when the customer wants more than a price, or has "
-                "picked a product that has_variants: the result then has `options` (label, price, "
-                "in_stock): tell the customer these options and ask which one they want, then call "
+                "Get the full details of one product by its exact item code: description, category, "
+                "specifications, link, current price and stock. Use it when the customer wants more than a "
+                "price, or has picked a product that has_variants: the result then has `options` (label, "
+                "price, in_stock): tell the customer these options and ask which one they want, then call "
                 "quote_price for the one they choose. Only use codes returned by search_products or "
-                "quote_price; never invent a code. If found is false, the code is wrong."
+                "quote_price; never invent a code. If found is false, the code is wrong. If price is null, "
+                "there is no price you may give."
             ),
             args_model=ProductDetailsArgs,
             risk="read",
@@ -218,8 +277,25 @@ def build_product_tools(catalogue: CatalogueService, pricing: PricingService) ->
     ]
 
 
+def _code(group: ProductGroup) -> str:
+    return group.items[0].code if not group.has_variants else group.base_key
+
+
+def _short(group: ProductGroup) -> dict[str, Any]:
+    return {"code": _code(group), "name_en": group.name_en, "name_ar": group.name_ar}
+
+
+def _safe_attributes(item: CatalogueItem) -> dict[str, Any]:
+    """The item's details without internal fields or any that look like a price (a "Trade price" column)."""
+    return {
+        key: value
+        for key, value in item.attributes.items()
+        if key not in _INTERNAL_ATTRIBUTES and not _PRICE_LIKE.search(str(key))
+    }
+
+
 async def _live(pricing: PricingService, code: str) -> tuple[ItemPrice | None, StockLevel | None]:
-    """Ask the ERP for the live price and stock together. An ERP that is down gives None, not a crash."""
+    """Read the price and stock together. A source that is down gives None, not a crash."""
     price, stock = await asyncio.gather(
         pricing.get_price(code), pricing.get_stock(code), return_exceptions=True
     )
@@ -227,10 +303,10 @@ async def _live(pricing: PricingService, code: str) -> tuple[ItemPrice | None, S
         if isinstance(outcome, BaseException) and not isinstance(outcome, IntegrationError):
             raise outcome
     if isinstance(price, BaseException):
-        logger.warning("Live price lookup failed for %s: %s", code, price)
+        logger.warning("Price lookup failed for %s: %s", code, price)
         price = None
     if isinstance(stock, BaseException):
-        logger.warning("Live stock lookup failed for %s: %s", code, stock)
+        logger.warning("Stock lookup failed for %s: %s", code, stock)
         stock = None
     return price, stock
 
@@ -252,39 +328,34 @@ _OPTION_ATTRIBUTES = {"color", "colors", "groups", "group"}
 class _Priced:
     item: CatalogueItem
     price: Decimal | None
-    source: str | None
     currency: str
     vat_included: bool
     in_stock: bool | None
 
 
 async def _priced_items(pricing: PricingService, items: list[CatalogueItem]) -> list[_Priced]:
-    """Live price and stock for each item; the catalogue copy only where the ERP gave nothing."""
+    """Price and stock for each item from the pricing service (the product table). The catalogue copy is never a
+    price source: with no table price the price is None."""
     lives = await asyncio.gather(*(_live(pricing, item.code) for item in items))
     priced = []
-    for item, (live_price, stock) in zip(items, lives, strict=True):
-        if live_price is not None:
-            price, source, currency, vat = live_price.price, "live", live_price.currency, live_price.vat_included
-        else:
-            price = item.price
-            source = "catalogue" if item.price is not None else None
-            currency, vat = item.currency, item.vat_included
-        priced.append(_Priced(item, price, source, currency, vat, stock.in_stock if stock else None))
+    for item, (price, stock) in zip(items, lives, strict=True):
+        currency = price.currency if price else item.currency
+        vat = price.vat_included if price else item.vat_included
+        priced.append(
+            _Priced(item, price.price if price else None, currency, vat, stock.in_stock if stock else None)
+        )
     return priced
 
 
-def _summary(group: ProductGroup, priced: list[_Priced]) -> dict[str, Any]:
+def _summary(priced: list[_Priced]) -> dict[str, Any]:
     """One price for the whole product: the lowest, and price_from=true when the options cost different amounts."""
     prices = [p.price for p in priced if p.price is not None]
-    first = priced[0]
     stocks = [p.in_stock for p in priced if p.in_stock is not None]
-    live = bool(priced) and all(p.source == "live" for p in priced if p.price is not None) and bool(prices)
     return {
         "price": _num(min(prices)) if prices else None,
         "price_from": len(set(prices)) > 1,
-        "price_source": ("live" if live else "catalogue") if prices else None,
-        "currency": first.currency,
-        "vat_included": first.vat_included,
+        "currency": priced[0].currency,
+        "vat_included": priced[0].vat_included,
         "in_stock": any(stocks) if stocks else None,
     }
 
@@ -326,34 +397,24 @@ async def _quote_item(
 ) -> dict[str, Any]:
     priced = await _priced_items(pricing, [best])
     entry = priced[0]
+    _present(ctx, group, priced, specific=True)
     result: dict[str, Any] = {
         "found": True,
         "code": best.code,
         "name_en": best.name_en,
         "name_ar": best.name_ar,
-        "price": _num(entry.price),
-        "price_source": entry.source,
-        "currency": entry.currency,
-        "vat_included": entry.vat_included,
-        "in_stock": entry.in_stock,
         "url": best.url,
         "match_score": round(match_score, 2),
+        "clear_match": True,
         "other_matches": others,
+        "in_stock": entry.in_stock,
     }
-    notes = []
-    if match_score < WEAK_MATCH_SCORE:
-        # The store keeps loose matches (score from 0.25) so that browsing works. For one quoted price a loose
-        # match is usually a different product that shares a word or a weight with what the customer asked for.
-        notes.append(
-            "Weak match: the product below may not be what the customer asked for. If name_en/name_ar is not "
-            "that product, say you could not find it, do not quote this price, and offer other_matches."
-        )
-    else:
-        _present(ctx, group, priced, specific=True)
-    if entry.source != "live":
-        notes.append("Live price not available. Do not state a price as final; say staff will confirm it.")
-    if notes:
-        result["note"] = " ".join(notes)
+    if entry.price is None:
+        # The product is clear but has no price: only staff can answer, so the turn hands over (see turn.py).
+        return {**result, "price": None, "handover": True, "handover_reason": "missing_price", "note": MISSING_PRICE_NOTE}
+    result.update(price=_num(entry.price), currency=entry.currency, vat_included=entry.vat_included, handover=False)
+    if entry.in_stock is None:
+        result["note"] = UNKNOWN_STOCK_NOTE
     return result
 
 
@@ -369,10 +430,8 @@ async def _base_details(ctx: RunContext, pricing: PricingService, group: Product
         "name_ar": group.name_ar,
         "category": group.category,
         "description": first.description,
-        "attributes": {
-            k: v for k, v in first.attributes.items() if k not in _INTERNAL_ATTRIBUTES | _OPTION_ATTRIBUTES
-        },
-        **_summary(group, priced),
+        "attributes": {k: v for k, v in _safe_attributes(first).items() if k not in _OPTION_ATTRIBUTES},
+        **_summary(priced),
         "has_variants": True,
         "options": [_option(entry) for entry in priced],
         "image_url": first.image_url,
